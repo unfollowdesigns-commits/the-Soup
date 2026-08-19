@@ -1,0 +1,252 @@
+{
+  "sourced": [
+    {
+      "file": "source/dust/dirt_101.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/dirt/dirt-101.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/dirt_022.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/dirt/dirt-022.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/dirt_091.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/dirt/dirt-091.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/dirt_106.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/dirt/dirt-106.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/spots_075.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/spots/spots-075.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/spots_002.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/spots/spots-002.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/sprink_0099.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/sprinkles/sprink-0099.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/dust/sprink_0002.png",
+      "kind": "dust",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/sprinkles/sprink-0002.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/hair_sh_0013.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/hair-short/hair-sh-0013.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/hair_sh_0056.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/hair-short/hair-sh-0056.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/hair_sh_0045.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/hair-short/hair-sh-0045.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/lint_066.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/lint/lint-066.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/lint_022.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/lint/lint-022.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/hair/lint_035.png",
+      "kind": "hair",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/lint/lint-035.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/scratch_0116.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/scratches/scratch-0116.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/scratch_0049.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/scratches/scratch-0049.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/scratch_0041.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/scratches/scratch-0041.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/scratch_0081.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/scratches/scratch-0081.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/scratch_0007.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/scratches/scratch-0007.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/smut_0080.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/smut/smut-0080.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/scratches/smut_0034.png",
+      "kind": "scratches",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/smut/smut-0034.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/stain/stain_038.png",
+      "kind": "stain",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/stain/stain-038.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/stain/stain_048.png",
+      "kind": "stain",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/stain/stain-048.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    },
+    {
+      "file": "source/stain/stain_109.png",
+      "kind": "stain",
+      "origin": "FilmDamageSimulator",
+      "originPath": "synthetic/stain/stain-109.png",
+      "license": "MIT",
+      "attribution": "Daniela Ivanova, FilmDamageSimulator (Eurographics 2023)"
+    }
+  ],
+  "authored": [
+    {
+      "file": "paper/paper-fibre-1.png",
+      "origin": "authored for this project",
+      "license": "same as repository",
+      "note": "coated sheet, machine direction"
+    },
+    {
+      "file": "paper/paper-fibre-2.png",
+      "origin": "authored for this project",
+      "license": "same as repository",
+      "note": "heavier rag, uneven coating"
+    },
+    {
+      "file": "photocopy/toner-1.png",
+      "origin": "authored for this project",
+      "license": "same as repository",
+      "note": "patchy toner, drum banding"
+    },
+    {
+      "file": "photocopy/toner-2.png",
+      "origin": "authored for this project",
+      "license": "same as repository",
+      "note": "second generation copy"
+    },
+    {
+      "file": "grain/blue-noise-256.png",
+      "origin": "authored for this project",
+      "license": "same as repository",
+      "note": "grain decorrelation field"
+    }
+  ],
+  "plates": [
+    {
+      "file": "plates/damage-atlas-1.png",
+      "slots": [
+        "dust",
+        "scratches",
+        "hair",
+        "stain"
+      ],
+      "layout": "2x2, 1024px per slot, wrap-safe",
+      "derivedFrom": "FilmDamageSimulator (MIT)"
+    },
+    {
+      "file": "plates/damage-atlas-2.png",
+      "slots": [
+        "dust",
+        "scratches",
+        "hair",
+        "stain"
+      ],
+      "layout": "2x2, 1024px per slot, wrap-safe",
+      "derivedFrom": "FilmDamageSimulator (MIT)"
+    }
+  ]
+}

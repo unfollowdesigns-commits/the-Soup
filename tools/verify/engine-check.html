@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><title>engine check</title>
+<style>body{margin:0;background:#151412}canvas{display:block}</style></head>
+<body><canvas id="c" width="900" height="600"></canvas>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe, makeBurn } from '/src/lab/recipe.ts';
+
+  window.__result = { status: 'running' };
+  try {
+    // a synthetic specimen with specular highlights, a tonal ramp and
+    // colour patches — enough to judge grain, halation and crossover
+    const w = 1200, h = 800;
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const g = off.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#0a0a0c'); grad.addColorStop(0.55, '#6a6152'); grad.addColorStop(1, '#f2ead8');
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+    const cols = ['#b8321f','#c98a2a','#5d7a3e','#2f5f86','#8d3f6b','#e8e2d2'];
+    cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(80 + i * 150, 520, 120, 180); });
+    for (let i = 0; i < 11; i++) { const v = Math.round(255 * i / 10); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(80 + i * 82, 80, 78, 90); }
+    g.fillStyle = '#fff';
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(260 + i * 130, 320, 8 + i * 3, 0, 7); g.fill(); }
+
+    const canvas = document.getElementById('c');
+    const r = new LabRenderer(canvas);
+    r.setSource(off, w, h);
+    r.resize(900, 600, 1);
+
+    const m = getMaterial('kodak-portra');
+    const rec = defaultRecipe('kodak-portra');
+    rec.grain.amount = 0.85; rec.grain.size = 0.5;
+    rec.halation.intensity = 0.5;
+    rec.optics.vignette = 0.3; rec.optics.chromatic = 0.25;
+    rec.experimental.filmSoup = 0.35;
+    rec.experimental.dust = 0.5; rec.experimental.scratches = 0.4;
+    rec.experimental.lightLeak = 0.3;
+    rec.burns = [makeBurn(0.72, 0.3)];
+    rec.depth.enabled = true;
+
+    // give the damage plates a moment to land
+    await new Promise((res) => setTimeout(res, 700));
+
+    const view = { zoom: 1, panX: 0, panY: 0, compare: 'split', split: 0.42, view: 'color' };
+    const stats = r.render(rec, m, view);
+    const err = r.gl.getError();
+    window.__result = { status: 'ok', stats, glError: err, damage: r.hasDamagePlates };
+  } catch (e) {
+    window.__result = { status: 'error', message: String(e && e.stack || e) };
+  }
+</script></body></html>

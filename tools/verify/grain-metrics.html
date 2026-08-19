@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="utf-8"><title>grain metrics</title></head><body>
+<canvas id="c" width="512" height="512"></canvas>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial, MATERIALS } from '/src/lab/materials.ts';
+  import { defaultRecipe } from '/src/lab/recipe.ts';
+  window.__result = { status: 'running' };
+  try {
+    // a flat field: any variation in the output is the grain alone
+    const N = 512;
+    const off = document.createElement('canvas'); off.width=N; off.height=N;
+    const g = off.getContext('2d');
+    g.fillStyle = '#7d7d7d'; g.fillRect(0,0,N,N);            // ~18-20% mid grey
+    g.fillStyle = '#1e1e1e'; g.fillRect(0,0,N,N/3);          // shadow band
+    g.fillStyle = '#e2e2e2'; g.fillRect(0,N*2/3,N,N/3);      // highlight band
+
+    const c = document.getElementById('c');
+    const r = new LabRenderer(c);
+    r.setSource(off, N, N); r.resize(N, N, 1);
+    await new Promise(res=>setTimeout(res,300));
+
+    const gl = r.gl;
+    const px = new Uint8Array(N*N*4);
+    const rows = [];
+
+    const measure = (matId, amount) => {
+      const rec = defaultRecipe(matId);
+      rec.grain.amount = amount;
+      rec.halation.intensity = 0; rec.diffusion.bloom = 0; rec.optics.vignette = 0;
+      rec.optics.chromatic = 0; rec.optics.edgeSoftness = 0;
+      r.render(rec, getMaterial(matId), {zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'});
+      gl.readPixels(0,0,N,N,gl.RGBA,gl.UNSIGNED_BYTE,px);
+      // sample the mid-grey band only (screen rows N/3..2N/3)
+      const y0=Math.floor(N/3)+20, y1=Math.floor(2*N/3)-20;
+      let sum=0,n=0;
+      const vals=[];
+      for(let y=y0;y<y1;y++) for(let x=20;x<N-20;x++){
+        const v=px[(y*N+x)*4]; vals.push(v); sum+=v; n++;
+      }
+      const mean=sum/n;
+      let v2=0; for(const v of vals) v2+=(v-mean)**2;
+      const std=Math.sqrt(v2/n);
+      // horizontal autocorrelation → grain size in pixels
+      const W=N-40;
+      let corr=[];
+      for(let lag=1;lag<=12;lag++){
+        let s=0,k=0;
+        for(let y=0;y<y1-y0;y++) for(let x=0;x<W-lag;x++){
+          s+=(vals[y*W+x]-mean)*(vals[y*W+x+lag]-mean); k++;
+        }
+        corr.push((s/k)/(std*std));
+      }
+      // correlation length: first lag where autocorrelation drops below 1/e
+      let len=corr.findIndex(v=>v<0.3679); len = len<0 ? 12 : len+1;
+      return { mean:+mean.toFixed(1), rms:+(std/mean*100).toFixed(2), corrPx:len,
+               corr: corr.slice(0,6).map(v=>+v.toFixed(2)) };
+    };
+
+    for (const m of MATERIALS) {
+      if (m.kind === 'early-process') continue;
+      rows.push({ id:m.id, iso:m.iso, size:+m.profile.grainSize.toFixed(2),
+                  ...measure(m.id, 0.7) });
+    }
+    const base = measure('kodak-tri-x', 0);
+    window.__result = { status:'ok', noGrain: base, rows };
+  } catch(e){ window.__result={status:'error',message:String(e&&e.stack||e)}; }
+</script></body></html>

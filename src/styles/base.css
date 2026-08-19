@@ -1,0 +1,249 @@
+/* ============================================================
+   BASE — reset, typography, shared primitives
+   ============================================================ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--s-050);
+  color: var(--t-200);
+  font-family: var(--f-sans);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+a { color: inherit; text-decoration: none; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+h1, h2, h3, h4, p { margin: 0; font-weight: inherit; }
+img { display: block; max-width: 100%; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 1px solid var(--a-amber);
+  outline-offset: 1px;
+}
+
+/* ---- the room: a faint, non-repeating tooth on every surface ---- */
+.tooth::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: var(--tooth-img);
+  background-size: 220px 220px;
+}
+
+/* ---- SCROLLBARS: thin, steel, quiet ---- */
+* { scrollbar-width: thin; scrollbar-color: var(--s-400) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--s-400);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: var(--s-600); background-clip: content-box; }
+
+/* ============================================================
+   TYPE PRIMITIVES
+   ============================================================ */
+
+/* stencilled section header — the label on the archive drawer */
+.lbl {
+  font-family: var(--f-sans);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--t-400);
+}
+.lbl--wide { letter-spacing: var(--tr-wide); }
+.lbl--lit { color: var(--t-300); }
+.lbl--amber { color: var(--a-amber); }
+
+/* technical readout — always monospace, always a real number */
+.mono {
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  letter-spacing: var(--tr-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--t-300);
+}
+.mono--val { color: var(--t-100); }
+.mono--dim { color: var(--t-500); }
+
+/* editorial / historical voice, used sparingly */
+.serif {
+  font-family: var(--f-serif);
+  font-size: var(--fs-body-l);
+  line-height: 1.62;
+  color: var(--t-200);
+}
+
+/* ============================================================
+   SURFACE PRIMITIVES
+   ============================================================ */
+
+.rule { height: 1px; background: var(--line-100); border: 0; }
+.rule--v { width: 1px; height: auto; align-self: stretch; }
+
+/* section header used across every panel */
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 34px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line-100);
+  flex: none;
+}
+.sec-head__line { flex: 1; height: 1px; background: var(--line-000); }
+
+/* ============================================================
+   BUTTONS — pressed metal and painted steel, never plastic
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-200);
+  border-radius: var(--r-2);
+  background: linear-gradient(180deg, var(--s-300), var(--s-200));
+  box-shadow: var(--sh-inset);
+  color: var(--t-200);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background var(--d-fast) var(--e-out),
+    border-color var(--d-fast) var(--e-out), color var(--d-fast) var(--e-out);
+}
+.btn:hover:not(:disabled) { border-color: var(--line-300); color: var(--t-000); }
+.btn:active:not(:disabled) {
+  background: var(--s-150);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.btn:disabled { opacity: 0.38; }
+
+.btn--quiet {
+  background: none;
+  border-color: transparent;
+  color: var(--t-400);
+}
+.btn--quiet:hover:not(:disabled) { color: var(--t-100); border-color: var(--line-100); }
+
+.btn--primary {
+  background: linear-gradient(180deg, #e0a445, var(--a-amber-dim));
+  border-color: rgba(0, 0, 0, 0.5);
+  color: #17130b;
+  font-weight: 600;
+}
+.btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, #eeb055, #9c722e); color: #17130b; }
+.btn--primary:active:not(:disabled) { background: var(--a-amber-dim); box-shadow: inset 0 1px 4px rgba(0,0,0,0.45); }
+
+.btn--danger { color: #c8705f; }
+.btn--danger:hover:not(:disabled) { color: #e08b78; border-color: rgba(154, 53, 39, 0.55); }
+
+.btn--lg { height: 38px; padding: 0 var(--sp-6); font-size: var(--fs-meta); }
+.btn--sm { height: 24px; padding: 0 var(--sp-3); font-size: var(--fs-micro); }
+.btn--block { width: 100%; }
+
+/* small icon-only control */
+.icb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-2);
+  color: var(--t-400);
+  transition: color var(--d-fast) var(--e-out), border-color var(--d-fast) var(--e-out),
+    background var(--d-fast) var(--e-out);
+}
+.icb:hover:not(:disabled) { color: var(--t-000); border-color: var(--line-100); background: var(--s-200); }
+.icb[data-on='true'] { color: var(--a-amber); border-color: var(--line-amber); background: rgba(217, 154, 63, 0.08); }
+.icb:disabled { opacity: 0.3; }
+
+/* segmented selector — a rotary switch flattened out */
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 1px;
+  border: 1px solid var(--line-100);
+  border-radius: var(--r-2);
+  background: var(--s-000);
+}
+.seg__opt {
+  padding: 0 var(--sp-3);
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-1);
+  color: var(--t-400);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color var(--d-fast) var(--e-out), background var(--d-fast) var(--e-out);
+}
+.seg__opt:hover { color: var(--t-100); }
+.seg__opt[aria-pressed='true'],
+.seg__opt[data-on='true'] {
+  background: var(--s-300);
+  color: var(--t-000);
+  box-shadow: var(--sh-inset);
+}
+
+/* ---- status lamp ---- */
+.lamp {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t-500);
+  flex: none;
+}
+.lamp[data-state='on'] { background: var(--a-chem); box-shadow: 0 0 6px rgba(123, 138, 78, 0.8); }
+.lamp[data-state='warn'] { background: var(--a-amber); box-shadow: 0 0 6px rgba(217, 154, 63, 0.7); }
+.lamp[data-state='busy'] { background: var(--a-amber); animation: pulse 1.15s var(--e-in-out) infinite; }
+.lamp[data-state='off'] { background: var(--s-500); }
+
+@keyframes pulse { 0%, 100% { opacity: 0.28; } 50% { opacity: 1; } }
+
+/* ---- utility ---- */
+.row { display: flex; align-items: center; }
+.row--gap { gap: var(--sp-2); }
+.spacer { flex: 1; }
+.scroll-y { overflow-y: auto; overflow-x: hidden; }
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

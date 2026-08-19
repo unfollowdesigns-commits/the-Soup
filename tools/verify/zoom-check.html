@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>100% inspection</title>
+<style>body{margin:0;background:#0e0d0c;font:11px/1.4 ui-monospace,monospace;color:#a89f8e}
+.grid{display:grid;grid-template-columns:repeat(3,400px);gap:10px;padding:10px}
+figcaption{padding:4px 0;letter-spacing:.1em;text-transform:uppercase}</style></head><body>
+<div class="grid" id="grid"></div>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe } from '/src/lab/recipe.ts';
+  import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+  window.__result = { status: 'running' };
+  try {
+    const src = makeHouseSpecimen('window', 1600, 1067);
+    const W = 400, H = 300;
+    const cases = [
+      ['tri-x 400 @100%',     'kodak-tri-x',  r => { r.grain.amount=0.7; }],
+      ['acros 100 @100%',     'fuji-neopan',  r => { r.grain.amount=0.7; }],
+      ['fomapan 400 @100%',   'foma-fomapan', r => { r.grain.amount=0.7; }],
+      ['portra 400 @100%',    'kodak-portra', r => { r.grain.amount=0.7; }],
+      ['ektar 100 @100%',     'kodak-ektar',  r => { r.grain.amount=0.7; }],
+      ['super8 @100%',        'super-8-color',r => { r.grain.amount=0.7; }],
+      ['halation 0.3',        'kodak-vision3-500t', r => { r.grain.amount=0; r.halation.intensity=0.3; }],
+      ['halation 0.6',        'kodak-vision3-500t', r => { r.grain.amount=0; r.halation.intensity=0.6; }],
+      ['halation 1.0',        'kodak-vision3-500t', r => { r.grain.amount=0; r.halation.intensity=1.0; }],
+    ];
+    const grid = document.getElementById('grid');
+    let last=null;
+    for (const [label, matId, tune] of cases) {
+      const fig=document.createElement('figure'); fig.style.margin='0';
+      const c=document.createElement('canvas'); c.width=W;c.height=H;c.style.display='block';
+      const cap=document.createElement('figcaption'); cap.textContent=label;
+      fig.append(c,cap); grid.append(fig);
+      const r=new LabRenderer(c); r.setSource(src.canvas,src.width,src.height); r.resize(W,H,1);
+      await new Promise(res=>setTimeout(res,200));
+      const rec=defaultRecipe(matId); tune(rec);
+      const zoom = label.includes('@100%') ? (1600/W) * (W/1600) * 4.0 : 1;
+      // true 1:1 — one source pixel per canvas pixel
+      const fit = Math.min(W/src.width, H/src.height);
+      const view={zoom: label.includes('@100%') ? 1/fit : 1, panX:0,panY:0,compare:'single',split:.5,view:'color'};
+      r.render(rec,getMaterial(matId),view); last=r;
+    }
+    window.__result={status:'ok',glError:last.gl.getError()};
+  } catch(e){ window.__result={status:'error',message:String(e&&e.stack||e)}; }
+</script></body></html>
