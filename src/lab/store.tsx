@@ -24,7 +24,7 @@ import { getMaterial } from './materials';
    SESSION STATE
    ============================================================ */
 
-export type Screen = 'enter' | 'import' | 'lab';
+export type Screen = 'enter' | 'import' | 'lab' | 'press';
 
 export interface LabState {
   screen: Screen;

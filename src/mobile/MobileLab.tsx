@@ -38,6 +38,9 @@ export function MobileLab() {
         <button className="btn btn--sm" type="button" onClick={() => dispatch({ type: 'screen', screen: 'import' })}>
           Specimen
         </button>
+        <button className="btn btn--sm" type="button" disabled={!specimen} onClick={() => dispatch({ type: 'screen', screen: 'press' })}>
+          Press
+        </button>
         <button
           className="btn btn--sm btn--primary"
           type="button"

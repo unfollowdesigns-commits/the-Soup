@@ -74,6 +74,14 @@ export function LabShell() {
           Change specimen
         </button>
         <button
+          className="btn"
+          type="button"
+          onClick={() => dispatch({ type: 'screen', screen: 'press' })}
+          disabled={!specimen}
+        >
+          Press
+        </button>
+        <button
           className="btn btn--primary"
           type="button"
           onClick={() => dispatch({ type: 'export', open: true })}
