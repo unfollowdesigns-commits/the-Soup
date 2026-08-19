@@ -18,6 +18,7 @@ import type {
   StageState,
 } from './types';
 import { defaultRecipe, proposeRecipeCode, STAGE_ORDER } from './recipe';
+import { applyLook, DEFAULT_LOOK, LOOKS } from './looks';
 import { getMaterial } from './materials';
 
 /* ============================================================
@@ -68,7 +69,12 @@ export function initialState(): LabState {
   return {
     screen: 'enter',
     specimen: null,
-    recipe: defaultRecipe(),
+    // the bench is never set to "no process": the lab opens on a look so
+    // the engine is visibly doing something before anything is touched
+    recipe: applyLook(
+      defaultRecipe(),
+      LOOKS.find((l) => l.id === DEFAULT_LOOK) ?? LOOKS[0],
+    ),
     stack: initialStack(),
     log: [],
     archive: loadArchive(),

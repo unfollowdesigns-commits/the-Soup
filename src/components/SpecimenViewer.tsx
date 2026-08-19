@@ -10,6 +10,7 @@ import { LabRenderer, fitScale, type CompareMode, type RenderStats, type ViewMod
 import { getMaterial } from '../lab/materials';
 import { makeBurn } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
+import { LookStrip } from './LookStrip';
 import { TraceOverlay } from './TraceOverlay';
 import type { TraceResult } from '../lab/tracker';
 import type { PhotoRecipe, Specimen } from '../lab/types';
@@ -207,6 +208,7 @@ export function SpecimenViewer({
 
   return (
     <div className="viewer">
+      <LookStrip />
       <ViewerBar
         view={view}
         setView={setView}

@@ -876,3 +876,64 @@
   border-right: 1px solid var(--line-000);
 }
 .transport .lbl { font-size: var(--fs-micro); }
+
+/* ============================================================
+   LOOK STRIP — whole processes, rendered on your own photograph
+   ============================================================ */
+
+.looks {
+  flex: none;
+  border-bottom: 1px solid var(--line-100);
+  background: linear-gradient(180deg, var(--s-000), var(--s-050));
+}
+.looks__rail {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.looks__rail::-webkit-scrollbar { display: none; }
+
+.look {
+  flex: none;
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+}
+.look__frame {
+  display: block;
+  position: relative;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border: 1px solid var(--line-100);
+  background: var(--s-100);
+  transition: border-color var(--d-fast) var(--e-out), transform var(--d-fast) var(--e-out);
+}
+.look__frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.look__pending {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, var(--s-100), var(--s-200) 50%, var(--s-100));
+  animation: look-wait 1.4s var(--e-in-out) infinite;
+}
+@keyframes look-wait { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+
+.look:hover .look__frame { border-color: var(--line-300); }
+.look[aria-pressed='true'] .look__frame {
+  border-color: var(--a-amber);
+  box-shadow: 0 0 0 1px var(--a-amber);
+}
+.look__name {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.look:hover .look__name { color: var(--t-100); }
+.look[aria-pressed='true'] .look__name { color: var(--a-amber); }

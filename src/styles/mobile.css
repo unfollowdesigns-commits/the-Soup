@@ -199,3 +199,13 @@
   .mrec__traits { display: none; }
   .random__head { width: 250px; }
 }
+
+/* the look strip is the first thing on the phone, not a settings screen */
+.mob__lab .looks {
+  margin: 0 calc(var(--sp-4) * -1);
+  border-bottom: 1px solid var(--line-000);
+  border-top: 0;
+  background: none;
+}
+.mob__lab .looks__rail { padding: 0 var(--sp-4) var(--sp-3); gap: var(--sp-2); }
+.mob__lab .look { width: 116px; }

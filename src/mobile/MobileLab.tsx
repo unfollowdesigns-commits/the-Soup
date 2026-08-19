@@ -3,6 +3,7 @@ import { Deck } from '../components/Deck';
 import { DevelopExport } from '../components/DevelopExport';
 import { MaterialDetail } from '../components/MaterialDetail';
 import { MaterialRecord } from '../components/MaterialArchive';
+import { LookStrip } from '../components/LookStrip';
 import { ProcessPanel } from '../components/ProcessPanel';
 import { SpecimenViewer, type PlacementMode } from '../components/SpecimenViewer';
 import { DepthAnalysis, ProcessingStatus } from '../components/Status';
@@ -141,6 +142,7 @@ function LabTab({ onOpen }: { onOpen: (ids: StageId[]) => void }) {
   ];
   return (
     <div className="mob__lab">
+      <LookStrip />
       <button className="mob__matbar" type="button" onClick={() => onOpen(['material', 'exposure'])}>
         <span className="mob__matswatch" aria-hidden="true">
           {m.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}
