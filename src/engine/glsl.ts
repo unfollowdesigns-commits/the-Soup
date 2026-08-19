@@ -597,9 +597,11 @@ void main() {
     } else {
       g = vec3(gA);
     }
-    // grain is a modulation of density, not an overlay on top of it
+    // grain is a modulation of density, not an overlay on top of it.
+    // The additive term follows density too, so the deepest shadows —
+    // where almost nothing developed — stay clean.
     col *= 1.0 + g * amp * 2.0;
-    col += g * amp * 0.22;
+    col += g * amp * 0.14 * dens;
   }
 
   /* ================= PHYSICAL DAMAGE =================

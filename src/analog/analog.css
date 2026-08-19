@@ -1,0 +1,56 @@
+/* ============================================================
+   ANALOG MATERIAL — layer stack
+   ============================================================ */
+
+.analog { position: relative; isolation: isolate; }
+
+.analog__stack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.analog--behind > .analog__stack { z-index: 0; }
+
+.analog__layer {
+  position: absolute;
+  inset: -25%;
+  display: block;
+  background-repeat: no-repeat;
+  will-change: opacity;
+}
+
+/* real material: paper fibre and toner tile at a size large enough
+   that the eye never finds the seam */
+.analog__layer--texture {
+  inset: 0;
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}
+
+/* real material: artefacts placed once across the surface, never tiled */
+.analog__layer--mark { background-repeat: no-repeat; }
+
+/* procedural: the grain field is generated for this element */
+.analog__layer--grain {
+  inset: 0;
+  mix-blend-mode: overlay;
+  background: transparent;
+}
+
+.analog__layer--burn { inset: 0; mix-blend-mode: screen; }
+
+.analog__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* motion is a character choice, not a default; anyone who has asked
+   for less of it gets none */
+@media (prefers-reduced-motion: reduce) {
+  .analog { animation: none !important; }
+}

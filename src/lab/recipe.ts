@@ -40,7 +40,7 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
     exposure: { ev: 0, contrast: 0, highlights: 0, shadows: 0, latitude: m.profile.latitude },
     development: { mode: 'normal', pushPull: 0, developer: m.developers[0] ?? 'stock', agitation: 0.5 },
     grain: {
-      amount: 0.5,
+      amount: 0.35,
       size: m.profile.grainSize,
       density: m.profile.grainDensity,
       clumping: m.profile.grainClump,

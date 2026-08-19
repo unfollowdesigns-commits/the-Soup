@@ -110,23 +110,24 @@ def build_plate(kind: str, tiles: list, rng: np.random.Generator) -> np.ndarray:
 # AUTHORED PLATES — original work
 # ---------------------------------------------------------------
 
-def _smooth_noise(shape, freq, rng):
-    """Value noise by upsampling a low-resolution random field."""
-    h, w = shape
-    small = rng.random((max(2, int(h / freq)), max(2, int(w / freq)))).astype(np.float32)
-    img = Image.fromarray((small * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC)
-    return np.array(img).astype(np.float32) / 255.0
+def spectral_noise(size, beta, rng, aniso=1.0):
+    """Periodic noise by spectral synthesis.
 
-
-def fbm(shape, octaves, base_freq, gain, rng):
-    out = np.zeros(shape, np.float32)
-    amp, norm, f = 1.0, 0.0, base_freq
-    for _ in range(octaves):
-        out += amp * _smooth_noise(shape, f, rng)
-        norm += amp
-        amp *= gain
-        f = max(1.5, f / 2.0)
-    return out / norm
+    Filtering white noise in the frequency domain and coming back gives a
+    field that is periodic on the torus by construction — so the plate tiles
+    with no seam, which upsampled value noise does not. `beta` sets the
+    falloff (larger = smoother), `aniso` stretches the spectrum along one
+    axis, which is how paper fibre acquires a machine direction.
+    """
+    w = np.fft.fftfreq(size)[:, None]
+    h = np.fft.fftfreq(size)[None, :]
+    r = np.sqrt((w * aniso) ** 2 + (h / aniso) ** 2)
+    r[0, 0] = 1.0
+    spectrum = np.fft.fft2(rng.standard_normal((size, size))) * (r ** -beta)
+    spectrum[0, 0] = 0.0
+    out = np.real(np.fft.ifft2(spectrum)).astype(np.float32)
+    s = out.std()
+    return out / (s if s > 1e-9 else 1.0)
 
 
 AUTHORED = 512   # authored plates are low-frequency; 512 is plenty
@@ -134,34 +135,28 @@ AUTHORED = 512   # authored plates are low-frequency; 512 is plenty
 
 def paper_plate(rng) -> np.ndarray:
     """Fibre, laid unevenly, with the faint cloudiness of a coated sheet."""
-    s = (AUTHORED, AUTHORED)
-    cloud = fbm(s, 5, 130, 0.55, rng)
-    fibre = fbm(s, 3, 6, 0.5, rng)
-    # draw the fibre out along the machine direction of the sheet
-    fibre = np.array(
-        Image.fromarray((fibre * 255).astype(np.uint8))
-        .resize((AUTHORED * 3, AUTHORED), Image.BICUBIC)
-        .resize(s, Image.BICUBIC)
-    ).astype(np.float32) / 255.0
-    tooth = rng.random(s).astype(np.float32)
-    p = 0.5 + (cloud - 0.5) * 0.55 + (fibre - 0.5) * 0.34 + (tooth - 0.5) * 0.07
+    n = AUTHORED
+    # weighted toward the high frequencies: tooth never reads as a repeat,
+    # low-frequency cloud does as soon as the plate tiles twice
+    cloud = spectral_noise(n, 1.6, rng)
+    fibre = spectral_noise(n, 1.0, rng, aniso=0.34)   # drawn out along the web
+    tooth = spectral_noise(n, 0.3, rng)
+    p = 0.5 + cloud * 0.045 + fibre * 0.062 + tooth * 0.085
     return np.clip(p, 0, 1)
 
 
 def photocopy_plate(rng) -> np.ndarray:
-    """Toner: patchy adhesion, a drum band, and dropout at the edge."""
-    s = (AUTHORED, AUTHORED)
-    patch = fbm(s, 4, 45, 0.5, rng)
-    speck = (rng.random(s) < 0.008).astype(np.float32)
-    speck = np.array(
-        Image.fromarray((speck * 255).astype(np.uint8)).filter(
-            __import__("PIL.ImageFilter", fromlist=["ImageFilter"]).GaussianBlur(0.6)
-        )
-    ).astype(np.float32) / 255.0
-    y = np.linspace(0, 1, AUTHORED, dtype=np.float32)[:, None]
-    band = 0.5 + 0.5 * np.sin(y * np.pi * 6.0 + rng.random() * 6.28) * 0.28
-    p = np.clip(patch * 0.78 + speck * 0.9 + (band - 0.5) * 0.3, 0, 1)
-    return p
+    """Toner: patchy adhesion, a drum band, and loose specks."""
+    n = AUTHORED
+    patch = spectral_noise(n, 1.35, rng)
+    speck = spectral_noise(n, 0.15, rng)
+    y = np.linspace(0, 2 * np.pi, n, endpoint=False, dtype=np.float32)[:, None]
+    # the band must complete whole cycles or the plate will not meet itself
+    band = np.sin(y * 6.0 + rng.random() * 6.28)
+    p = 0.5 + patch * 0.075 + speck * 0.07 + band * 0.03
+    # a scatter of toner that did not fuse
+    dots = (speck > 2.6).astype(np.float32)
+    return np.clip(p + dots * 0.35, 0, 1)
 
 
 def blue_noise(size=256, iterations=28, rng=None) -> np.ndarray:

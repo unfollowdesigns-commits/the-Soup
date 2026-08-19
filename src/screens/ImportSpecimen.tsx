@@ -1,0 +1,152 @@
+import { useCallback, useRef, useState } from 'react';
+import { AnalogSurface } from '../analog/AnalogSurface';
+import { makeHouseSpecimen, type HouseSpecimen } from '../lab/specimens';
+import { useDispatch, useLab } from '../lab/store';
+import type { Specimen } from '../lab/types';
+
+/* ============================================================
+   SCREEN 2 — IMPORT SPECIMEN
+   The photograph goes on the table. Nothing leaves the machine:
+   the file is read locally and handed straight to the engine.
+   ============================================================ */
+
+export function ImportSpecimen() {
+  const dispatch = useDispatch();
+  const { specimen } = useLab();
+  const [over, setOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  const accept = useCallback(
+    async (file: File) => {
+      setError(null);
+      if (!file.type.startsWith('image/')) {
+        setError('That is not an image the lab can read.');
+        return;
+      }
+      try {
+        const bitmap = await createImageBitmap(file);
+        const s: Specimen = {
+          id: `sp-${Date.now().toString(36)}`,
+          name: file.name.replace(/\.[^.]+$/, ''),
+          source: 'imported',
+          width: bitmap.width,
+          height: bitmap.height,
+          bitmap,
+          importedAt: Date.now(),
+          fileSize: file.size,
+        };
+        dispatch({ type: 'specimen', specimen: s });
+      } catch {
+        setError('The file could not be decoded. Try a JPEG, PNG or WebP.');
+      }
+    },
+    [dispatch],
+  );
+
+  const house = (kind: HouseSpecimen) => {
+    const drawn = makeHouseSpecimen(kind, 1800, 1200);
+    dispatch({
+      type: 'specimen',
+      specimen: {
+        id: `house-${kind}`,
+        name: drawn.name,
+        source: 'house',
+        width: drawn.width,
+        height: drawn.height,
+        bitmap: drawn.canvas,
+        importedAt: Date.now(),
+        note: drawn.note,
+      },
+    });
+  };
+
+  return (
+    <div className="import">
+      <header className="import__head">
+        <button
+          className="btn btn--quiet"
+          type="button"
+          onClick={() => dispatch({ type: 'screen', screen: specimen ? 'lab' : 'enter' })}
+        >
+          ← {specimen ? 'Back to the lab' : 'Back'}
+        </button>
+        <span className="spacer" />
+        <span className="lbl lbl--wide">Import specimen</span>
+      </header>
+
+      <div className="import__body">
+        <AnalogSurface
+          preset="bench"
+          seed={11}
+          textureOpacity={0.1}
+          className={`dropzone ${over ? 'dropzone--over' : ''}`}
+          as="div"
+        >
+          <div
+            className="dropzone__inner"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOver(true);
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOver(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) void accept(f);
+            }}
+          >
+            <span className="dropzone__corner dropzone__corner--tl" />
+            <span className="dropzone__corner dropzone__corner--tr" />
+            <span className="dropzone__corner dropzone__corner--bl" />
+            <span className="dropzone__corner dropzone__corner--br" />
+
+            <p className="lbl lbl--wide dropzone__label">Place a photograph here</p>
+            <p className="serif dropzone__lead">
+              Drop a file on the table, or choose one. The image is read on this
+              machine and handed straight to the engine — nothing is uploaded.
+            </p>
+            <button className="btn btn--lg btn--primary" type="button" onClick={() => input.current?.click()}>
+              Choose a file
+            </button>
+            <input
+              ref={input}
+              className="sr"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void accept(f);
+                e.target.value = '';
+              }}
+            />
+            {error ? <p className="dropzone__error mono">{error}</p> : null}
+          </div>
+        </AnalogSurface>
+
+        <aside className="import__house">
+          <h2 className="lbl lbl--wide">On the bench</h2>
+          <p className="import__note">
+            Two reference images the lab keeps to hand. Both are drawn in code —
+            neither is a photograph, and neither pretends to be.
+          </p>
+          <button className="housecard" type="button" onClick={() => house('window')}>
+            <span className="housecard__thumb housecard__thumb--window" aria-hidden="true" />
+            <span>
+              <span className="housecard__name">Window Study</span>
+              <span className="mono mono--dim">Light, glass and a bench. Good for halation.</span>
+            </span>
+          </button>
+          <button className="housecard" type="button" onClick={() => house('target')}>
+            <span className="housecard__thumb housecard__thumb--target" aria-hidden="true" />
+            <span>
+              <span className="housecard__name">Bench Test Target</span>
+              <span className="mono mono--dim">Step wedge and primaries. Good for density and grain.</span>
+            </span>
+          </button>
+        </aside>
+      </div>
+    </div>
+  );
+}

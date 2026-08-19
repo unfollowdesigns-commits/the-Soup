@@ -1,0 +1,661 @@
+import { useState } from 'react';
+import { getMaterial, KIND_LABEL } from '../lab/materials';
+import {
+  DEV_LABEL,
+  DEV_NOTE,
+  DEVELOPER_LABEL,
+  DEVELOPER_NOTE,
+  SOUP_CHEMICALS,
+  describeAmount,
+  makeBurn,
+  newSeed,
+  seedLabel,
+  stageSummary,
+} from '../lab/recipe';
+import { useDispatch, useLab, useEdit } from '../lab/store';
+import type {
+  BurnMark,
+  DevelopmentMode,
+  DeveloperStyle,
+  LogKind,
+  PhotoRecipe,
+  SoupChemical,
+  StageId,
+} from '../lab/types';
+import { ExposureScale, Instrument, Module, Segmented, SeedField } from './Instrument';
+
+/* ============================================================
+   THE WORKSTATION
+   Each module is one stage of the process. Order here follows the
+   order in the tank, not the order of a settings screen.
+   ============================================================ */
+
+type Setter = (mutate: (r: PhotoRecipe) => PhotoRecipe, kind: LogKind, title: string, detail: string) => void;
+
+function useProcess() {
+  const { draft, edit, commit } = useEdit();
+  const live: Setter = (mutate, kind, title, detail) =>
+    draft(mutate, { kind, title, detail, coalesce: `${kind}:${title}` });
+  const once: Setter = (mutate, kind, title, detail) => edit(mutate, { kind, title, detail });
+  return { live, once, commit };
+}
+
+export function ProcessPanel({
+  placing,
+  setPlacing,
+  onInspect,
+  only,
+  bare = false,
+}: {
+  placing: 'none' | 'burn';
+  setPlacing: (p: 'none' | 'burn') => void;
+  onInspect: (id: string) => void;
+  /** render a subset — the mobile sheets show one stage at a time */
+  only?: StageId[];
+  bare?: boolean;
+}) {
+  const { recipe, stack } = useLab();
+  const [open, setOpen] = useState<Record<string, boolean>>(() => only
+    ? Object.fromEntries(only.map((id) => [id, true]))
+    : {
+    material: true,
+    exposure: true,
+    development: false,
+    grain: true,
+    halation: false,
+    diffusion: false,
+    optics: false,
+    burn: false,
+    soup: false,
+    damage: false,
+    depth: false,
+  });
+  const dispatch = useDispatch();
+  const show = (id: StageId) => !only || only.includes(id);
+  const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
+  const enabled = (id: StageId) => stack.find((s) => s.id === id)?.enabled ?? true;
+  const power = (id: StageId) => dispatch({ type: 'stack:toggle', id });
+
+  const mod = (id: StageId) => ({
+    open: open[id],
+    onToggle: () => toggle(id),
+    enabled: enabled(id),
+    onEnabled: () => power(id),
+    meta: stageSummary(id, recipe),
+  });
+
+  const body = (
+    <>
+      {show('material') && <MaterialModule mod={mod('material')} onInspect={onInspect} />}
+      {show('exposure') && <ExposureModule mod={mod('exposure')} />}
+      {show('development') && <DevelopmentModule mod={mod('development')} />}
+      {show('grain') && <GrainModule mod={mod('grain')} />}
+      {show('halation') && <HalationModule mod={mod('halation')} />}
+      {show('diffusion') && <DiffusionModule mod={mod('diffusion')} />}
+      {show('optics') && <OpticsModule mod={mod('optics')} />}
+      {show('burn') && <BurnModule mod={mod('burn')} placing={placing} setPlacing={setPlacing} />}
+      {show('soup') && <SoupModule mod={mod('soup')} />}
+      {show('damage') && <DamageModule mod={mod('damage')} />}
+      {show('depth') && <DepthModule mod={mod('depth')} />}
+    </>
+  );
+
+  if (bare) return <div className="process process--bare">{body}</div>;
+
+  return (
+    <aside className="process" aria-label="Processing controls">
+      <div className="sec-head">
+        <span className="lbl lbl--wide">Process</span>
+        <span className="sec-head__line" />
+        <span className="mono mono--dim">{getMaterial(recipe.material).archiveNo}</span>
+      </div>
+      <div className="process__scroll scroll-y">{body}</div>
+    </aside>
+  );
+}
+
+type ModProps = ReturnType<ReturnType<typeof useModShape>>;
+function useModShape() {
+  return (id: StageId) => ({ open: true, onToggle: () => {}, enabled: true, onEnabled: () => {}, meta: id as string });
+}
+
+/* ---------------- MATERIAL ---------------- */
+function MaterialModule({ mod, onInspect }: { mod: ModProps; onInspect: (id: string) => void }) {
+  const { recipe } = useLab();
+  const m = getMaterial(recipe.material);
+  return (
+    <Module title="Material" {...mod} onEnabled={undefined}>
+      <div className="matcard">
+        <span className="matcard__swatch" aria-hidden="true">
+          {m.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}
+        </span>
+        <div className="matcard__body">
+          <p className="matcard__name">{m.name}</p>
+          <p className="mono mono--dim">
+            {KIND_LABEL[m.kind]} · {m.isoLabel}
+          </p>
+          <p className="mono mono--dim">
+            {m.yearFrom} → {m.yearTo ?? 'Present'}
+          </p>
+        </div>
+      </div>
+      <button className="btn btn--sm btn--block" type="button" onClick={() => onInspect(m.id)}>
+        Open record
+      </button>
+    </Module>
+  );
+}
+
+/* ---------------- EXPOSURE ---------------- */
+function ExposureModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, commit } = useProcess();
+  const e = recipe.exposure;
+  const p = (k: keyof typeof e, title: string) => ({
+    onChange: (v: number) =>
+      live((r) => ({ ...r, exposure: { ...r.exposure, [k]: v } }), 'exposure', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+
+  return (
+    <Module title="Exposure" {...mod}>
+      <ExposureScale
+        value={e.ev}
+        onChange={(v) =>
+          live((r) => ({ ...r, exposure: { ...r.exposure, ev: v } }), 'exposure', 'Exposure',
+            `${v > 0 ? '+' : ''}${v.toFixed(1)} EV`)
+        }
+        onCommit={commit}
+      />
+      <Instrument label="Contrast" value={e.contrast} min={-1} max={1} bipolar {...p('contrast', 'Contrast')} />
+      <Instrument label="Highlights" value={e.highlights} min={-1} max={1} bipolar {...p('highlights', 'Highlights')} />
+      <Instrument label="Shadows" value={e.shadows} min={-1} max={1} bipolar {...p('shadows', 'Shadows')} />
+      <Instrument
+        label="Latitude"
+        value={e.latitude}
+        note="How much the material forgives. Set by the stock; move it to see what a different emulsion would have held."
+        {...p('latitude', 'Latitude')}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- DEVELOPMENT ---------------- */
+function DevelopmentModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const m = getMaterial(recipe.material);
+  const d = recipe.development;
+  const pushable = d.mode === 'push' || d.mode === 'pull';
+
+  return (
+    <Module title="Development" {...mod}>
+      <Segmented<DevelopmentMode>
+        value={d.mode}
+        options={m.development.map((x) => ({ id: x, label: DEV_LABEL[x], title: DEV_NOTE[x] }))}
+        onChange={(v) =>
+          once((r) => ({
+            ...r,
+            development: { ...r.development, mode: v, pushPull: v === 'push' ? Math.max(1, r.development.pushPull) : v === 'pull' ? Math.min(-1, r.development.pushPull) : 0 },
+          }), 'development', 'Development', DEV_LABEL[v])
+        }
+      />
+      <p className="instr__note">{DEV_NOTE[d.mode]}</p>
+
+      <Instrument
+        label="Push / Pull"
+        value={d.pushPull}
+        min={-3}
+        max={3}
+        step={0.5}
+        bipolar
+        ticks={13}
+        disabled={!pushable}
+        unit=" stops"
+        format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
+        onChange={(v) =>
+          live((r) => ({ ...r, development: { ...r.development, pushPull: v } }), 'development', 'Push / Pull',
+            `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
+        }
+        onCommit={commit}
+      />
+
+      <Segmented<DeveloperStyle>
+        label="Chemistry"
+        value={d.developer}
+        options={m.developers.map((x) => ({ id: x, label: DEVELOPER_LABEL[x], title: DEVELOPER_NOTE[x] }))}
+        onChange={(v) =>
+          once((r) => ({ ...r, development: { ...r.development, developer: v } }), 'development', 'Developer', DEVELOPER_LABEL[v])
+        }
+      />
+      <p className="instr__note">{DEVELOPER_NOTE[d.developer]}</p>
+
+      <Instrument
+        label="Agitation"
+        value={d.agitation}
+        note="Less agitation exhausts the developer locally: edge effects climb, overall contrast falls."
+        onChange={(v) =>
+          live((r) => ({ ...r, development: { ...r.development, agitation: v } }), 'development', 'Agitation', v.toFixed(2))
+        }
+        onCommit={commit}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- GRAIN ---------------- */
+function GrainModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const g = recipe.grain;
+  const mono = getMaterial(recipe.material).profile.monochrome;
+  const p = (k: keyof typeof g, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, grain: { ...r.grain, [k]: v } }), 'grain', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+
+  return (
+    <Module title="Grain" {...mod}>
+      <Instrument
+        label="Amount"
+        value={g.amount}
+        format={(v) => `${describeAmount(v)} ${v.toFixed(2)}`}
+        {...p('amount', 'Grain Amount')}
+      />
+      <Instrument label="Size" value={g.size} {...p('size', 'Grain Size')} />
+      <Instrument label="Density" value={g.density} {...p('density', 'Grain Density')} />
+      <Instrument label="Clumping" value={g.clumping} {...p('clumping', 'Grain Clumping')} />
+      <Instrument
+        label="Luminance response"
+        value={g.luminance}
+        note="At 1.00 the grain follows density the way silver does — strongest in the mid-tones, quiet at both ends."
+        {...p('luminance', 'Grain Luminance')}
+      />
+      <Instrument
+        label="Colour response"
+        value={g.chroma}
+        disabled={mono}
+        note={mono ? 'Monochrome material: the dye layers do not apply.' : undefined}
+        {...p('chroma', 'Grain Colour')}
+      />
+      <Instrument label="Randomness" value={g.randomness} {...p('randomness', 'Grain Randomness')} />
+      <SeedField
+        seed={g.seed}
+        onSeed={(s) => once((r) => ({ ...r, grain: { ...r.grain, seed: s } }), 'grain', 'Grain Seed', seedLabel(s))}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- HALATION ---------------- */
+function HalationModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, commit } = useProcess();
+  const h = recipe.halation;
+  const p = (k: keyof typeof h, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, halation: { ...r.halation, [k]: v } }), 'halation', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Halation" {...mod}>
+      <Instrument label="Intensity" value={h.intensity} {...p('intensity', 'Halation')} />
+      <Instrument label="Threshold" value={h.threshold} {...p('threshold', 'Halation Threshold')} />
+      <Instrument label="Radius" value={h.radius} {...p('radius', 'Halation Radius')} />
+      <Instrument
+        label="Colour"
+        value={h.hue}
+        format={(v) => (v < 0.42 ? 'Cold' : v > 0.58 ? 'Ember' : 'Native')}
+        note="Native follows the material. The extremes move toward scattered blue or bare ember red."
+        {...p('hue', 'Halation Colour')}
+      />
+      <Instrument
+        label="Edge response"
+        value={h.edge}
+        note="At the top the scatter only shows where a highlight meets something dark, which is where it actually happens."
+        {...p('edge', 'Halation Edge')}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- DIFFUSION ---------------- */
+function DiffusionModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, commit } = useProcess();
+  const d = recipe.diffusion;
+  const p = (k: keyof typeof d, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, diffusion: { ...r.diffusion, [k]: v } }), 'diffusion', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Diffusion" {...mod}>
+      <Instrument label="Softness" value={d.softness} {...p('softness', 'Softness')} />
+      <Instrument label="Bloom" value={d.bloom} {...p('bloom', 'Bloom')} />
+      <Instrument label="Highlight spread" value={d.spread} {...p('spread', 'Highlight Spread')} />
+    </Module>
+  );
+}
+
+/* ---------------- OPTICS ---------------- */
+function OpticsModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, commit } = useProcess();
+  const o = recipe.optics;
+  const p = (k: keyof typeof o, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, optics: { ...r.optics, [k]: v } }), 'optics', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Optics" {...mod}>
+      <Instrument label="Distortion" value={o.distortion} min={-1} max={1} bipolar {...p('distortion', 'Distortion')} />
+      <Instrument label="Chromatic aberration" value={o.chromatic} {...p('chromatic', 'Chromatic Aberration')} />
+      <Instrument label="Vignette" value={o.vignette} {...p('vignette', 'Vignette')} />
+      <Instrument label="Edge softness" value={o.edgeSoftness} {...p('edgeSoftness', 'Edge Softness')} />
+    </Module>
+  );
+}
+
+/* ---------------- FILM BURN ---------------- */
+function BurnModule({
+  mod,
+  placing,
+  setPlacing,
+}: {
+  mod: ModProps;
+  placing: 'none' | 'burn';
+  setPlacing: (p: 'none' | 'burn') => void;
+}) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const [sel, setSel] = useState(0);
+  const burns = recipe.burns;
+  const b: BurnMark | undefined = burns[Math.min(sel, burns.length - 1)];
+
+  const setB = (patch: Partial<BurnMark>, title: string, detail: string, immediate = false) => {
+    const idx = Math.min(sel, burns.length - 1);
+    const fn = (r: PhotoRecipe) => ({
+      ...r,
+      burns: r.burns.map((x, i) => (i === idx ? { ...x, ...patch } : x)),
+    });
+    (immediate ? once : live)(fn, 'burn', title, detail);
+  };
+
+  return (
+    <Module title="Film Burn" {...mod} accent="red">
+      <div className="burnlist">
+        {burns.map((x, i) => (
+          <button
+            key={x.id}
+            type="button"
+            className="burnlist__item"
+            aria-pressed={i === Math.min(sel, burns.length - 1)}
+            onClick={() => setSel(i)}
+          >
+            <span className="lamp" data-state={x.enabled ? 'warn' : 'off'} />
+            <span className="mono">{String(i + 1).padStart(2, '0')}</span>
+            <span className="mono mono--dim">{x.amount.toFixed(2)}</span>
+          </button>
+        ))}
+        <button
+          className="btn btn--sm"
+          type="button"
+          onClick={() =>
+            once((r) => ({ ...r, burns: [...r.burns, makeBurn(0.35 + Math.random() * 0.3, 0.35 + Math.random() * 0.3)] }),
+              'burn', 'Film Burn Added', `Mark ${burns.length + 1}`)
+          }
+        >
+          Add
+        </button>
+        <button
+          className={`btn btn--sm ${placing === 'burn' ? 'btn--primary' : ''}`}
+          type="button"
+          onClick={() => setPlacing(placing === 'burn' ? 'none' : 'burn')}
+        >
+          {placing === 'burn' ? 'Click the specimen' : 'Place'}
+        </button>
+      </div>
+
+      {b ? (
+        <>
+          <Instrument
+            label="Amount"
+            value={b.amount}
+            onChange={(v) => setB({ amount: v }, 'Burn Amount', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <Instrument
+            label="Spread"
+            value={b.spread}
+            onChange={(v) => setB({ spread: v }, 'Burn Spread', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <Instrument
+            label="Density"
+            value={b.density}
+            onChange={(v) => setB({ density: v }, 'Burn Density', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <Instrument
+            label="Colour"
+            value={b.hue}
+            format={(v) => (v < 0.35 ? 'Deep ember' : v > 0.7 ? 'Bright' : 'Ember')}
+            onChange={(v) => setB({ hue: v }, 'Burn Colour', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <Instrument
+            label="Edge softness"
+            value={b.edge}
+            onChange={(v) => setB({ edge: v }, 'Burn Edge', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <Instrument
+            label="Randomness"
+            value={b.randomness}
+            note="Raises the irregularity of the perimeter and the structure inside the mark."
+            onChange={(v) => setB({ randomness: v }, 'Burn Randomness', v.toFixed(2))}
+            onCommit={commit}
+          />
+          <SeedField seed={b.seed} onSeed={(s) => setB({ seed: s }, 'Burn Seed', seedLabel(s), true)} />
+          <div className="row row--gap">
+            <button
+              className="btn btn--sm"
+              type="button"
+              onClick={() => setB({ enabled: !b.enabled }, b.enabled ? 'Burn Disabled' : 'Burn Enabled', `Mark ${sel + 1}`, true)}
+            >
+              {b.enabled ? 'Disable' : 'Enable'}
+            </button>
+            <button
+              className="btn btn--sm"
+              type="button"
+              onClick={() =>
+                once((r) => ({ ...r, burns: [...r.burns, { ...b, id: `burn-${Math.random().toString(16).slice(2, 8)}`, seed: newSeed(), x: Math.min(0.92, b.x + 0.12) }] }),
+                  'burn', 'Burn Duplicated', `Mark ${burns.length + 1}`)
+              }
+            >
+              Duplicate
+            </button>
+            <span className="spacer" />
+            <button
+              className="btn btn--sm btn--danger"
+              type="button"
+              onClick={() => {
+                once((r) => ({ ...r, burns: r.burns.filter((x) => x.id !== b.id) }), 'burn', 'Burn Removed', `Mark ${sel + 1}`);
+                setSel(0);
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="instr__note">
+          No marks on this frame. Add one, or place it on the specimen directly.
+        </p>
+      )}
+    </Module>
+  );
+}
+
+/* ---------------- FILM SOUP ---------------- */
+function SoupModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const x = recipe.experimental;
+  const p = (k: keyof typeof x, title: string) => ({
+    onChange: (v: number) =>
+      live((r) => ({ ...r, experimental: { ...r.experimental, [k]: v } }), 'soup', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  const chem = SOUP_CHEMICALS.find((c) => c.id === x.soupChemical)!;
+
+  return (
+    <Module title="Film Soup" {...mod} accent="chem">
+      <div className="chemgrid">
+        {SOUP_CHEMICALS.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="chem"
+            aria-pressed={c.id === x.soupChemical}
+            title={c.note}
+            onClick={() =>
+              once((r) => ({ ...r, experimental: { ...r.experimental, soupChemical: c.id as SoupChemical } }),
+                'soup', 'Chemistry', c.label)
+            }
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="instr__note">{chem.note}</p>
+
+      <Instrument label="Amount" value={x.filmSoup} {...p('filmSoup', 'Film Soup')} />
+      <Instrument
+        label="Temperature"
+        value={x.soupTemperature}
+        format={(v) => `${Math.round(4 + v * 56)}°C`}
+        {...p('soupTemperature', 'Temperature')}
+      />
+      <Instrument label="Contamination" value={x.contamination} {...p('contamination', 'Contamination')} />
+      <Instrument label="Fog" value={x.fog} {...p('fog', 'Fog')} />
+      <Instrument label="Bleed" value={x.bleed} {...p('bleed', 'Bleed')} />
+      <Instrument label="Density" value={x.soupDensity} {...p('soupDensity', 'Soup Density')} />
+      <Instrument label="Randomness" value={x.soupRandomness} {...p('soupRandomness', 'Soup Randomness')} />
+      <SeedField
+        seed={x.soupSeed}
+        onSeed={(s) => once((r) => ({ ...r, experimental: { ...r.experimental, soupSeed: s } }), 'soup', 'Soup Seed', seedLabel(s))}
+      />
+      <button
+        className="btn btn--block"
+        type="button"
+        onClick={() =>
+          once((r) => ({
+            ...r,
+            experimental: {
+              ...r.experimental,
+              soupSeed: newSeed(),
+              filmSoup: r.experimental.filmSoup > 0 ? r.experimental.filmSoup : 0.3,
+            },
+          }), 'soup', 'Experiment Run', seedLabel(x.soupSeed))
+        }
+      >
+        Run experiment
+      </button>
+    </Module>
+  );
+}
+
+/* ---------------- DAMAGE ---------------- */
+function DamageModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const x = recipe.experimental;
+  const p = (k: keyof typeof x, title: string) => ({
+    onChange: (v: number) =>
+      live((r) => ({ ...r, experimental: { ...r.experimental, [k]: v } }), 'experiment', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Damage & Age" {...mod} accent="red">
+      <Instrument label="Expired" value={x.expired} note="Base fog rises, speed falls, the dyes drift apart." {...p('expired', 'Expired')} />
+      <Instrument label="Redscale" value={x.redscale} note="Exposed through the base rather than the emulsion." {...p('redscale', 'Redscale')} />
+      <Instrument label="Solarisation" value={x.solarization} {...p('solarization', 'Solarisation')} />
+      <Instrument label="Light leak" value={x.lightLeak} {...p('lightLeak', 'Light Leak')} />
+      <Instrument label="Scratches" value={x.scratches} note="Traced from real 35mm scans, not drawn." {...p('scratches', 'Scratches')} />
+      <Instrument label="Dust & hair" value={x.dust} note="Also real: dirt and lint from scanned frames." {...p('dust', 'Dust')} />
+      <SeedField
+        seed={x.seed}
+        onSeed={(s) => once((r) => ({ ...r, experimental: { ...r.experimental, seed: s } }), 'experiment', 'Damage Seed', seedLabel(s))}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- DEPTH ---------------- */
+function DepthModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const d = recipe.depth;
+  const targets = [
+    { id: 'grain', label: 'Grain' },
+    { id: 'halation', label: 'Halation' },
+    { id: 'diffusion', label: 'Diffusion' },
+    { id: 'burn', label: 'Burn' },
+    { id: 'haze', label: 'Haze' },
+  ] as const;
+
+  return (
+    <Module title="Depth" {...mod} accent="blue">
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Depth influence</span>
+        <span className="spacer" />
+        <button
+          className="btn btn--sm"
+          type="button"
+          aria-pressed={d.enabled}
+          onClick={() =>
+            once((r) => ({ ...r, depth: { ...r.depth, enabled: !r.depth.enabled } }), 'depth', d.enabled ? 'Depth Off' : 'Depth On',
+              d.enabled ? 'disabled' : `influence ${d.influence.toFixed(2)}`)
+          }
+        >
+          {d.enabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      <Instrument
+        label="Influence"
+        value={d.influence}
+        disabled={!d.enabled}
+        onChange={(v) => live((r) => ({ ...r, depth: { ...r.depth, influence: v } }), 'depth', 'Depth Influence', v.toFixed(2))}
+        onCommit={commit}
+      />
+      <div className="chemgrid">
+        {targets.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className="chem"
+            aria-pressed={d.target.includes(t.id)}
+            disabled={!d.enabled}
+            onClick={() =>
+              once((r) => ({
+                ...r,
+                depth: {
+                  ...r.depth,
+                  target: r.depth.target.includes(t.id)
+                    ? r.depth.target.filter((z) => z !== t.id)
+                    : [...r.depth.target, t.id],
+                },
+              }), 'depth', 'Depth Target', t.label)
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <p className="instr__note">
+        No monocular depth model is connected. The lab is running a proxy
+        estimate derived from the image itself, and labels it as such.
+      </p>
+    </Module>
+  );
+}

@@ -41,10 +41,10 @@ img { display: block; max-width: 100%; }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.14;
   mix-blend-mode: overlay;
   background-image: var(--tooth-img);
-  background-size: 220px 220px;
+  background-size: 380px 380px;
 }
 
 /* ---- SCROLLBARS: thin, steel, quiet ---- */

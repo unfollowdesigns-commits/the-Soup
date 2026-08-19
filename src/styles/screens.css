@@ -1,0 +1,307 @@
+/* ============================================================
+   SCREEN 1 — ENTER THE LAB
+   ============================================================ */
+
+.enter {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  overflow: hidden;
+  background: var(--s-void);
+}
+
+/* daylight through a tall industrial window, off to the left */
+.enter__light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 78% at 12% 6%, rgba(236, 216, 178, 0.13), transparent 62%),
+    radial-gradient(38% 52% at 78% 88%, rgba(154, 53, 39, 0.055), transparent 70%),
+    linear-gradient(180deg, #131210 0%, #0d0c0b 62%, #090808 100%);
+  opacity: 0;
+  transition: opacity 900ms var(--e-out);
+}
+.enter[data-lit='true'] .enter__light { opacity: 1; }
+
+.enter__head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-10);
+}
+.enter__mark {
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--a-amber);
+  border-radius: 50%;
+  position: relative;
+}
+.enter__mark::after {
+  content: '';
+  position: absolute;
+  inset: 3.5px;
+  border-radius: 50%;
+  background: var(--a-amber);
+}
+
+.enter__centre {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: var(--sp-16);
+  padding: 0 var(--sp-12);
+  min-height: 0;
+}
+
+.enter__plate {
+  max-width: 560px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 780ms var(--e-out) 120ms, transform 780ms var(--e-out) 120ms;
+}
+.enter[data-lit='true'] .enter__plate { opacity: 1; transform: none; }
+
+.enter__eyebrow { color: var(--t-400); }
+.enter__title {
+  margin: var(--sp-3) 0 var(--sp-5);
+  font-size: var(--fs-hero);
+  font-weight: 300;
+  line-height: 0.94;
+  letter-spacing: -0.028em;
+  color: var(--t-000);
+}
+.enter__title em {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-weight: 300;
+  color: var(--a-amber);
+}
+
+.enter__lead { max-width: 46ch; color: var(--t-200); }
+
+.enter__actions { margin: var(--sp-8) 0 var(--sp-8); }
+
+.enter__strip-holder {
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 900ms var(--e-out) 260ms, transform 900ms var(--e-out) 260ms;
+}
+.enter[data-lit='true'] .enter__strip-holder { opacity: 1; transform: none; }
+
+/* ---- the contact strip: three frames on one piece of film ---- */
+.strip {
+  position: relative;
+  padding: var(--sp-2) 0;
+  background: linear-gradient(180deg, #17140f, #100e0b);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  box-shadow: var(--sh-3);
+}
+
+/* perforations, drawn rather than photographed */
+.strip__perf {
+  height: 13px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 9px,
+    rgba(0, 0, 0, 0.85) 9px 22px,
+    transparent 22px 31px
+  );
+  opacity: 0.9;
+}
+.strip__perf--top { border-bottom: 1px solid rgba(0, 0, 0, 0.5); }
+.strip__perf--bottom { border-top: 1px solid rgba(0, 0, 0, 0.5); }
+
+.strip__frames {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+}
+.strip__frame { margin: 0; min-width: 0; }
+.strip__canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background: #0b0a09;
+}
+.strip__frame figcaption {
+  padding: 5px 2px 3px;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip__note {
+  padding: var(--sp-3) var(--sp-1) 0;
+  font-size: var(--fs-micro);
+}
+
+.enter__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--line-100);
+  margin: 0;
+}
+.enter__facts div { display: flex; flex-direction: column; gap: 3px; }
+.enter__facts dd { margin: 0; font-size: var(--fs-micro); }
+
+/* the shelf of film along the bottom of the room */
+.enter__shelf {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  border-top: 1px solid var(--line-100);
+  background: linear-gradient(180deg, rgba(53, 39, 30, 0.5), rgba(13, 12, 11, 0.9));
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.enter__strip {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-10);
+  opacity: 0;
+  transition: opacity 1100ms var(--e-out) 340ms;
+}
+.enter[data-lit='true'] .enter__strip { opacity: 1; }
+
+.enter__can {
+  flex: none;
+  width: 116px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line-000);
+  border-radius: var(--r-2);
+  background: rgba(0, 0, 0, 0.25);
+}
+.enter__can-swatch { display: flex; height: 26px; border: 1px solid rgba(0, 0, 0, 0.5); }
+.enter__can-swatch i { flex: 1; }
+.enter__can-name {
+  font-size: var(--fs-micro);
+  color: var(--t-200);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.enter__can-iso { font-size: var(--fs-micro); }
+
+/* ============================================================
+   SCREEN 2 — IMPORT SPECIMEN
+   ============================================================ */
+
+.import {
+  display: grid;
+  grid-template-rows: var(--bar-h) minmax(0, 1fr);
+  height: 100%;
+  background: var(--s-050);
+  background-image: radial-gradient(110% 80% at 10% -10%, rgba(226, 208, 174, 0.05), transparent 60%);
+}
+
+.import__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-6);
+  border-bottom: 1px solid var(--line-100);
+}
+
+.import__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-10);
+  min-height: 0;
+}
+
+.dropzone { display: flex; min-height: 0; }
+.dropzone__inner {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-12);
+  text-align: center;
+  border: 1px dashed var(--line-100);
+  border-radius: var(--r-2);
+  background: rgba(0, 0, 0, 0.2);
+  transition: border-color var(--d-base) var(--e-out), background var(--d-base) var(--e-out);
+}
+.dropzone--over .dropzone__inner {
+  border-color: var(--a-amber);
+  background: rgba(217, 154, 63, 0.05);
+}
+
+/* the corner marks a printer puts on a sheet */
+.dropzone__corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-200);
+}
+.dropzone__corner--tl { left: 12px; top: 12px; border-right: 0; border-bottom: 0; }
+.dropzone__corner--tr { right: 12px; top: 12px; border-left: 0; border-bottom: 0; }
+.dropzone__corner--bl { left: 12px; bottom: 12px; border-right: 0; border-top: 0; }
+.dropzone__corner--br { right: 12px; bottom: 12px; border-left: 0; border-top: 0; }
+
+.dropzone__lead { max-width: 44ch; color: var(--t-300); }
+.dropzone__error { color: #c8705f; }
+
+.import__house { display: flex; flex-direction: column; gap: var(--sp-3); }
+.import__note { font-size: var(--fs-body-s); color: var(--t-400); line-height: 1.6; margin-bottom: var(--sp-2); }
+
+.housecard {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  text-align: left;
+  border: 1px solid var(--line-100);
+  border-radius: var(--r-2);
+  background: var(--s-100);
+  transition: border-color var(--d-fast) var(--e-out), background var(--d-fast) var(--e-out);
+}
+.housecard:hover { border-color: var(--line-200); background: var(--s-150); }
+.housecard > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.housecard__name { font-size: var(--fs-body-s); color: var(--t-100); }
+.housecard .mono { font-size: var(--fs-micro); line-height: 1.5; }
+
+.housecard__thumb {
+  width: 62px;
+  height: 44px;
+  flex: none;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: var(--sh-1);
+}
+.housecard__thumb--window {
+  background:
+    linear-gradient(105deg, #f2e9d4 0%, #f2e9d4 26%, #6b6153 44%, #2a241d 78%, #16120e 100%);
+}
+.housecard__thumb--target {
+  background:
+    linear-gradient(90deg, #101010 0%, #4a4a48 34%, #8f8d86 60%, #e8e5da 100%);
+}
+
+@media (max-width: 1240px) {
+  .enter__centre { grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-content: center; }
+  .enter__strip-holder { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .import__body { grid-template-columns: 1fr; padding: var(--sp-6); gap: var(--sp-6); }
+  .enter__centre, .enter__head, .enter__strip { padding-left: var(--sp-6); padding-right: var(--sp-6); }
+  .enter__title { font-size: clamp(34px, 11vw, 58px); }
+}

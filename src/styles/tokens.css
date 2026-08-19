@@ -105,6 +105,10 @@
   --deck-h: 216px;
   --deck-h-collapsed: 40px;
 
+  /* the tooth of a coated sheet, laid under the working surfaces.
+     Real material — see docs/ANALOG_SYSTEM.md */
+  --tooth-img: url('/analog/paper/paper-fibre-1.png');
+
   color-scheme: dark;
 }
 
