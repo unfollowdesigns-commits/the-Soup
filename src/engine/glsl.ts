@@ -315,6 +315,9 @@ uniform vec4  uBurnA[8];    // x, y, amount, spread
 uniform vec4  uBurnB[8];    // density, hue, edge, randomness
 uniform float uBurnSeed[8];
 
+uniform float uSeqOn, uSeqRows, uSeqCols, uSeqDrift, uSeqGutter;
+uniform float uDither, uLevels, uComb, uScanline;
+
 uniform float uDepthOn, uDepthInf;
 uniform vec4  uDepthTargets; // grain, halation, diffusion, burn
 uniform float uDepthHaze;
@@ -355,6 +358,15 @@ float grainField(vec2 fp, float scale, float seed, float clump, float rand) {
   return mix(v, w, clamp(rand, 0.0, 1.0) * 0.4);
 }
 
+/* 4x4 ordered dither matrix */
+float bayer4(vec2 p) {
+  float x = p.x, y = p.y;
+  float m = 0.0;
+  m += mod(y, 2.0) * 8.0 + mod(x, 2.0) * 4.0;
+  m += mod(floor(y / 2.0), 2.0) * 2.0 + mod(floor(x / 2.0), 2.0);
+  return m / 16.0;
+}
+
 /* sample one quadrant of the damage atlas, wrapped and transformed
    so a plate never lands the same way twice */
 float damagePlate(vec2 uv, vec2 quad, float scale, float rot, vec2 off) {
@@ -379,6 +391,29 @@ void main() {
   }
 
   vec2 iuv = mapUV(suv, map);
+
+  /* ---- SEQUENCE ----
+     The frame repeated as a strip or a grid, the way a contact sheet
+     carries one roll. Each cell gets its own drift, so the sheet reads
+     as a set of exposures rather than a duplicated image. */
+  float cellIndex = 0.0;
+  float cellDrift = 0.0;
+  if (uSeqOn > 0.5 && inside(iuv)) {
+    vec2 grid = vec2(max(uSeqCols, 1.0), max(uSeqRows, 1.0));
+    vec2 g2 = iuv * grid;
+    vec2 cell = floor(g2);
+    vec2 f = fract(g2);
+    cellIndex = cell.y * grid.x + cell.x;
+    // the gutter between frames on the sheet
+    float gut = uSeqGutter * 0.09;
+    if (f.x < gut || f.x > 1.0 - gut || f.y < gut || f.y > 1.0 - gut) {
+      outColor = vec4(0.02, 0.019, 0.017, 1.0);
+      return;
+    }
+    f = (f - gut) / max(1.0 - gut * 2.0, EPS);
+    cellDrift = (hash21(cell + 7.3) - 0.5) * 2.0 * uSeqDrift;
+    iuv = f;
+  }
 
   if (!inside(iuv)) {
     // outside the specimen: leave the light table showing through,
@@ -659,9 +694,43 @@ void main() {
     col *= 1.0 - amt * 0.7 * (1.0 - polarity);
   }
 
+  /* ---- per-cell drift on a contact sheet ---- */
+  if (uSeqOn > 0.5) {
+    col *= exp2(cellDrift * 0.85);
+    col *= 1.0 + vec3(cellDrift * 0.06, 0.0, -cellDrift * 0.05);
+  }
+
   /* ================= VIGNETTE ================= */
   float vig = 1.0 - uVignette * smoothstep(0.06, 0.78, r2) * 1.25;
   col *= clamp(vig, 0.0, 1.4);
+
+  /* ================= RASTER =================
+     The output stage: a scan comb, a line structure, and an ordered
+     dither. Bayer rather than random, because a random dither reads
+     as noise and an ordered one reads as print. */
+  if (uComb > 0.0) {
+    float bars = 0.5 + 0.5 * cos(suv.x * uRes.x * 0.55);
+    col *= 1.0 - uComb * 0.55 * bars;
+    col += vec3(0.02, 0.03, 0.04) * uComb * (1.0 - bars);
+  }
+  if (uScanline > 0.0) {
+    float line = 0.5 + 0.5 * cos(suv.y * uRes.y * 1.57);
+    col *= 1.0 - uScanline * 0.4 * line;
+  }
+  if (uDither > 0.0) {
+    // 4x4 ordered matrix, screen aligned
+    vec2 ip = floor(mod(suv * uRes, 4.0));
+    float bayer = bayer4(ip) - 0.5;
+    float steps = max(2.0, floor(mix(24.0, 2.0, clamp(uLevels, 0.0, 1.0))));
+    vec3 c2 = linearToSrgb(col);
+    // as the levels fall the image converges on a bitmap: three channels
+    // quantised separately at two levels is colour fringing, not print
+    float mono = 1.0 - clamp((steps - 2.0) / 7.0, 0.0, 1.0);
+    c2 = mix(c2, vec3(dot(c2, vec3(0.299, 0.587, 0.114))), mono);
+    c2 += bayer / steps * uDither * 1.4;
+    c2 = floor(c2 * steps + 0.5) / steps;
+    col = srgbToLinear(mix(linearToSrgb(col), c2, uDither));
+  }
 
   /* ================= VIEW MODES ================= */
   if (uView == 1) {

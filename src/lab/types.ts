@@ -217,7 +217,44 @@ export interface PhotoRecipe {
     influence: number;
     target: DepthTarget[];
   };
+
+  /** the vector layer: what the lab has found in the frame, drawn over it */
+  trace: {
+    enabled: boolean;
+    mode: TraceMode;
+    density: number;      /* how many regions to track */
+    sensitivity: number;
+    motion: number;       /* how much frame-to-frame change counts */
+    labels: boolean;
+    links: number;        /* constellation between tracked centroids */
+    weight: number;       /* stroke weight */
+    colour: TraceColour;
+    jitter: number;       /* sub-frame instability of the overlay */
+    glyphs: string;       /* the ramp used by the typographic mode */
+    cell: number;         /* character cell size for the typographic mode */
+  };
+
+  /** contact sheet: the frame repeated as a strip or grid */
+  sequence: {
+    enabled: boolean;
+    rows: number;
+    cols: number;
+    drift: number;        /* how far each cell wanders from the recipe */
+    stamp: boolean;       /* frame numbers and a date along the edge */
+    gutter: number;
+  };
+
+  /** output rasterisation: dither, posterise, comb */
+  raster: {
+    dither: number;
+    levels: number;
+    comb: number;         /* vertical scan comb */
+    scanline: number;
+  };
 }
+
+export type TraceMode = 'boxes' | 'swarm' | 'points' | 'links' | 'type';
+export type TraceColour = 'paper' | 'amber' | 'ice' | 'ember' | 'source';
 
 export type SoupChemical =
   | 'water'
@@ -259,6 +296,9 @@ export type LogKind =
   | 'depth'
   | 'archive'
   | 'specimen'
+  | 'trace'
+  | 'sequence'
+  | 'raster'
   | 'export';
 
 export interface LogEntry {
@@ -275,9 +315,13 @@ export interface Specimen {
   id: string;
   name: string;
   source: 'imported' | 'house';
+  kind: 'still' | 'moving';
   width: number;
   height: number;
-  bitmap: ImageBitmap | HTMLImageElement | HTMLCanvasElement;
+  bitmap: ImageBitmap | HTMLImageElement | HTMLCanvasElement | HTMLVideoElement;
+  /** present when kind is 'moving'; the same engine runs every frame */
+  video?: HTMLVideoElement;
+  duration?: number;
   importedAt: number;
   fileSize?: number;
   note?: string;
@@ -295,7 +339,10 @@ export type StageId =
   | 'burn'
   | 'soup'
   | 'damage'
-  | 'depth';
+  | 'depth'
+  | 'trace'
+  | 'sequence'
+  | 'raster';
 
 export interface StageState {
   id: StageId;

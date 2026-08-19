@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LabRenderer } from '../engine/renderer';
 import { getMaterial } from '../lab/materials';
-import { seedLabel, proposeRecipeCode } from '../lab/recipe';
+import { DEV_LABEL, seedLabel, proposeRecipeCode } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
 import { Cross } from './MaterialDetail';
 import { Segmented } from './Instrument';
@@ -85,7 +85,7 @@ export function DevelopExport() {
     ['Material', m.name],
     ['Archive no.', m.archiveNo],
     ['Exposure', `${recipe.exposure.ev >= 0 ? '+' : ''}${recipe.exposure.ev.toFixed(1)} EV`],
-    ['Development', recipe.development.mode],
+    ['Development', DEV_LABEL[recipe.development.mode]],
     ['Grain seed', seedLabel(recipe.grain.seed)],
     ['Soup seed', seedLabel(recipe.experimental.soupSeed)],
     ['Damage seed', seedLabel(recipe.experimental.seed)],

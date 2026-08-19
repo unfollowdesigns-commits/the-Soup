@@ -43,7 +43,7 @@ export function Deck({
   ];
 
   return (
-    <section className="deck" data-collapsed={collapsed} aria-label="Bench">
+    <section className="deck tooth" data-collapsed={collapsed} aria-label="Bench">
       <header className="deck__bar">
         {tabs.map((t) => (
           <button

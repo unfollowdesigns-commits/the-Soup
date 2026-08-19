@@ -199,6 +199,15 @@ export class LabRenderer {
 
   /* ---- source -------------------------------------------- */
 
+  /** re-upload the current frame of a moving specimen; cheap enough to
+   *  run every animation frame because the texture is already allocated */
+  updateSource(img: TexImageSource) {
+    const gl = this.gl;
+    if (!this.srcTex) return;
+    gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img as any);
+  }
+
   setSource(img: TexImageSource, w: number, h: number) {
     const gl = this.gl;
     if (!this.srcTex) this.srcTex = gl.createTexture();
@@ -459,6 +468,19 @@ export class LabRenderer {
         gl.uniform4fv(this.u(P, 'uBurnB'), B);
         gl.uniform1fv(this.u(P, 'uBurnSeed'), S);
       }
+
+      const q = recipe.sequence;
+      gl.uniform1f(this.u(P, 'uSeqOn'), q.enabled ? 1 : 0);
+      gl.uniform1f(this.u(P, 'uSeqRows'), q.rows);
+      gl.uniform1f(this.u(P, 'uSeqCols'), q.cols);
+      gl.uniform1f(this.u(P, 'uSeqDrift'), q.drift);
+      gl.uniform1f(this.u(P, 'uSeqGutter'), q.gutter);
+
+      const ra = recipe.raster;
+      gl.uniform1f(this.u(P, 'uDither'), ra.dither);
+      gl.uniform1f(this.u(P, 'uLevels'), ra.levels);
+      gl.uniform1f(this.u(P, 'uComb'), ra.comb);
+      gl.uniform1f(this.u(P, 'uScanline'), ra.scanline);
 
       const d = recipe.depth;
       gl.uniform1f(this.u(P, 'uDepthOn'), d.enabled ? 1 : 0);

@@ -425,19 +425,20 @@
   width: 26px;
   height: 46px;
   transform: translate(-50%, -50%);
-  border: 1px solid var(--line-300);
+  border: 1px solid rgba(244, 239, 228, 0.34);
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--s-400), var(--s-200));
-  box-shadow: var(--sh-2), var(--sh-inset);
+  background: linear-gradient(180deg, #4a453e, #2a2724);
+  box-shadow: var(--sh-2), inset 0 1px 0 rgba(244, 239, 228, 0.14);
 }
+.viewer__stage:hover .viewer__split-grip { border-color: var(--a-amber); }
 .viewer__split-grip::before,
 .viewer__split-grip::after {
   content: '';
   position: absolute;
-  top: 14px;
-  bottom: 14px;
+  top: 13px;
+  bottom: 13px;
   width: 1px;
-  background: var(--t-500);
+  background: var(--t-200);
 }
 .viewer__split-grip::before { left: 10px; }
 .viewer__split-grip::after { right: 10px; }
@@ -821,3 +822,57 @@
   .sheet__body { grid-template-columns: 1fr; }
   .sheet__col--record { border-left: 0; border-top: 1px solid var(--line-000); }
 }
+
+/* ---- burn marks on the frame ---- */
+.burnmarks { position: absolute; inset: 0; pointer-events: none; }
+.burnmark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: grab;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  min-height: 26px;
+  touch-action: none;
+}
+.burnmark:active { cursor: grabbing; }
+.burnmark[data-off='true'] { opacity: 0.32; }
+.burnmark__ring {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(226, 126, 44, 0.5);
+  border-radius: 50%;
+  transition: border-color var(--d-fast) var(--e-out);
+}
+.burnmark:hover .burnmark__ring,
+.burnmark:focus-visible .burnmark__ring { border-color: var(--a-orange); border-style: solid; }
+.burnmark__no {
+  position: relative;
+  padding: 1px 5px;
+  border-radius: var(--r-2);
+  background: rgba(12, 11, 10, 0.82);
+  border: 1px solid rgba(226, 126, 44, 0.5);
+  font-size: var(--fs-micro);
+  color: var(--a-orange);
+}
+
+/* ---- the vector layer sits over the frame, never under it ---- */
+.trace {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---- transport for a moving specimen ---- */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border-left: 1px solid var(--line-000);
+  border-right: 1px solid var(--line-000);
+}
+.transport .lbl { font-size: var(--fs-micro); }

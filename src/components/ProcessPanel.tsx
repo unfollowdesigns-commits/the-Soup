@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { getMaterial, KIND_LABEL } from '../lab/materials';
 import {
   DEV_LABEL,
+  GLYPH_RAMPS,
+  TRACE_COLOURS,
+  TRACE_MODES,
+  traceCount,
   DEV_NOTE,
   DEVELOPER_LABEL,
   DEVELOPER_NOTE,
@@ -15,6 +19,8 @@ import {
 import { useDispatch, useLab, useEdit } from '../lab/store';
 import type {
   BurnMark,
+  TraceColour,
+  TraceMode,
   DevelopmentMode,
   DeveloperStyle,
   LogKind,
@@ -69,6 +75,9 @@ export function ProcessPanel({
     soup: false,
     damage: false,
     depth: false,
+    trace: false,
+    sequence: false,
+    raster: false,
   });
   const dispatch = useDispatch();
   const show = (id: StageId) => !only || only.includes(id);
@@ -97,6 +106,9 @@ export function ProcessPanel({
       {show('soup') && <SoupModule mod={mod('soup')} />}
       {show('damage') && <DamageModule mod={mod('damage')} />}
       {show('depth') && <DepthModule mod={mod('depth')} />}
+      {show('trace') && <TraceModule mod={mod('trace')} />}
+      {show('sequence') && <SequenceModule mod={mod('sequence')} />}
+      {show('raster') && <RasterModule mod={mod('raster')} />}
     </>
   );
 
@@ -114,9 +126,13 @@ export function ProcessPanel({
   );
 }
 
-type ModProps = ReturnType<ReturnType<typeof useModShape>>;
-function useModShape() {
-  return (id: StageId) => ({ open: true, onToggle: () => {}, enabled: true, onEnabled: () => {}, meta: id as string });
+/** the shape every module header needs, assembled once per stage */
+interface ModProps {
+  open: boolean;
+  onToggle: () => void;
+  enabled: boolean;
+  onEnabled: (() => void) | undefined;
+  meta: string;
 }
 
 /* ---------------- MATERIAL ---------------- */
@@ -656,6 +672,226 @@ function DepthModule({ mod }: { mod: ModProps }) {
         No monocular depth model is connected. The lab is running a proxy
         estimate derived from the image itself, and labels it as such.
       </p>
+    </Module>
+  );
+}
+
+/* ---------------- TRACE ----------------
+   The vector layer. It reports what the tracker measured; it does
+   not decorate the frame with numbers that mean nothing. */
+function TraceModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const t = recipe.trace;
+  const p = (k: keyof typeof t, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, trace: { ...r.trace, [k]: v } }), 'trace', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  const set = <K extends keyof typeof t>(k: K, v: (typeof t)[K], title: string, detail: string) =>
+    once((r) => ({ ...r, trace: { ...r.trace, [k]: v } }), 'trace', title, detail);
+
+  const typographic = t.mode === 'type';
+
+  return (
+    <Module title="Trace" {...mod} accent="blue">
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Vector layer</span>
+        <span className="spacer" />
+        <button
+          className="btn btn--sm"
+          type="button"
+          aria-pressed={t.enabled}
+          onClick={() => set('enabled', !t.enabled, t.enabled ? 'Trace Off' : 'Trace On', TRACE_MODES.find((m) => m.id === t.mode)!.label)}
+        >
+          {t.enabled ? 'On' : 'Off'}
+        </button>
+      </div>
+
+      <Segmented<TraceMode>
+        value={t.mode}
+        options={TRACE_MODES.map((m) => ({ id: m.id, label: m.label, title: m.note }))}
+        onChange={(v) => set('mode', v, 'Trace Mode', TRACE_MODES.find((m) => m.id === v)!.label)}
+      />
+      <p className="instr__note">{TRACE_MODES.find((m) => m.id === t.mode)!.note}</p>
+
+      {!typographic ? (
+        <>
+          <Instrument
+            label="Regions"
+            value={t.density}
+            disabled={!t.enabled}
+            format={() => String(traceCount(recipe))}
+            {...p('density', 'Trace Regions')}
+          />
+          <Instrument label="Sensitivity" value={t.sensitivity} disabled={!t.enabled} {...p('sensitivity', 'Trace Sensitivity')} />
+          <Instrument
+            label="Motion weight"
+            value={t.motion}
+            disabled={!t.enabled}
+            note="How much frame-to-frame change counts against local contrast. On a still specimen there is no motion to weigh, and the tracker says so."
+            {...p('motion', 'Trace Motion')}
+          />
+          <Instrument label="Links" value={t.links} disabled={!t.enabled} {...p('links', 'Trace Links')} />
+          <Instrument label="Stroke" value={t.weight} disabled={!t.enabled} {...p('weight', 'Trace Stroke')} />
+          <Instrument label="Instability" value={t.jitter} disabled={!t.enabled} {...p('jitter', 'Trace Jitter')} />
+          <div className="row row--gap depth__switch">
+            <span className="instr__label">Labels</span>
+            <span className="spacer" />
+            <button
+              className="btn btn--sm"
+              type="button"
+              aria-pressed={t.labels}
+              disabled={!t.enabled}
+              onClick={() => set('labels', !t.labels, 'Trace Labels', t.labels ? 'off' : 'on')}
+            >
+              {t.labels ? 'Shown' : 'Hidden'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <Instrument
+            label="Cell size"
+            value={t.cell}
+            disabled={!t.enabled}
+            note="Smaller cells resolve more of the picture and read less as type."
+            {...p('cell', 'Type Cell')}
+          />
+          <div className="chemgrid">
+            {GLYPH_RAMPS.map((g) => (
+              <button
+                key={g.label}
+                type="button"
+                className="chem"
+                aria-pressed={t.glyphs === g.id}
+                disabled={!t.enabled}
+                onClick={() => set('glyphs', g.id, 'Glyph Ramp', g.label)}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="chemgrid">
+        {TRACE_COLOURS.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="chem"
+            aria-pressed={t.colour === c.id}
+            disabled={!t.enabled}
+            onClick={() => set('colour', c.id as TraceColour, 'Trace Colour', c.label)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+    </Module>
+  );
+}
+
+/* ---------------- SEQUENCE ---------------- */
+function SequenceModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const q = recipe.sequence;
+  const p = (k: keyof typeof q, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, sequence: { ...r.sequence, [k]: v } }), 'sequence', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Sequence" {...mod}>
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Contact sheet</span>
+        <span className="spacer" />
+        <button
+          className="btn btn--sm"
+          type="button"
+          aria-pressed={q.enabled}
+          onClick={() =>
+            once((r) => ({ ...r, sequence: { ...r.sequence, enabled: !r.sequence.enabled } }), 'sequence',
+              q.enabled ? 'Sequence Off' : 'Sequence On', `${q.rows} × ${q.cols}`)
+          }
+        >
+          {q.enabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      <Instrument
+        label="Rows"
+        value={q.rows}
+        min={1}
+        max={8}
+        step={1}
+        ticks={8}
+        disabled={!q.enabled}
+        format={(v) => v.toFixed(0)}
+        {...p('rows', 'Sequence Rows')}
+      />
+      <Instrument
+        label="Columns"
+        value={q.cols}
+        min={1}
+        max={8}
+        step={1}
+        ticks={8}
+        disabled={!q.enabled}
+        format={(v) => v.toFixed(0)}
+        {...p('cols', 'Sequence Columns')}
+      />
+      <Instrument
+        label="Exposure drift"
+        value={q.drift}
+        disabled={!q.enabled}
+        note="Each frame on the sheet drifts from the recipe, the way a roll drifts across a shoot."
+        {...p('drift', 'Sequence Drift')}
+      />
+      <Instrument label="Gutter" value={q.gutter} disabled={!q.enabled} {...p('gutter', 'Sequence Gutter')} />
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Edge markings</span>
+        <span className="spacer" />
+        <button
+          className="btn btn--sm"
+          type="button"
+          aria-pressed={q.stamp}
+          disabled={!q.enabled}
+          onClick={() =>
+            once((r) => ({ ...r, sequence: { ...r.sequence, stamp: !r.sequence.stamp } }), 'sequence', 'Edge Markings', q.stamp ? 'off' : 'on')
+          }
+        >
+          {q.stamp ? 'Printed' : 'Bare'}
+        </button>
+      </div>
+    </Module>
+  );
+}
+
+/* ---------------- RASTER ---------------- */
+function RasterModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, commit } = useProcess();
+  const ra = recipe.raster;
+  const p = (k: keyof typeof ra, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, raster: { ...r.raster, [k]: v } }), 'raster', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Raster" {...mod}>
+      <Instrument
+        label="Dither"
+        value={ra.dither}
+        note="An ordered matrix, not random noise — a random dither reads as grain, an ordered one reads as print."
+        {...p('dither', 'Dither')}
+      />
+      <Instrument
+        label="Levels"
+        value={ra.levels}
+        format={(v) => String(Math.max(2, Math.floor(24 - v * 22)))}
+        {...p('levels', 'Dither Levels')}
+      />
+      <Instrument label="Scan comb" value={ra.comb} {...p('comb', 'Scan Comb')} />
+      <Instrument label="Scanline" value={ra.scanline} {...p('scanline', 'Scanline')} />
     </Module>
   );
 }

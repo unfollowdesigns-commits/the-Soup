@@ -20,16 +20,50 @@ export function ImportSpecimen() {
   const accept = useCallback(
     async (file: File) => {
       setError(null);
-      if (!file.type.startsWith('image/')) {
-        setError('That is not an image the lab can read.');
+      const isVideo = file.type.startsWith('video/');
+      if (!file.type.startsWith('image/') && !isVideo) {
+        setError('That is not something the lab can read. Try a JPEG, PNG, WebP or MP4.');
         return;
       }
       try {
+        if (isVideo) {
+          // a moving specimen goes through exactly the same engine, one
+          // frame at a time; nothing is uploaded here either
+          const video = document.createElement('video');
+          video.src = URL.createObjectURL(file);
+          video.muted = true;
+          video.loop = true;
+          video.playsInline = true;
+          video.crossOrigin = 'anonymous';
+          await new Promise<void>((res, rej) => {
+            video.onloadedmetadata = () => res();
+            video.onerror = () => rej(new Error('decode'));
+          });
+          await video.play().catch(() => undefined);
+          dispatch({
+            type: 'specimen',
+            specimen: {
+              id: `sp-${Date.now().toString(36)}`,
+              name: file.name.replace(/\.[^.]+$/, ''),
+              source: 'imported',
+              kind: 'moving',
+              width: video.videoWidth,
+              height: video.videoHeight,
+              bitmap: video,
+              video,
+              duration: video.duration,
+              importedAt: Date.now(),
+              fileSize: file.size,
+            },
+          });
+          return;
+        }
         const bitmap = await createImageBitmap(file);
         const s: Specimen = {
           id: `sp-${Date.now().toString(36)}`,
           name: file.name.replace(/\.[^.]+$/, ''),
           source: 'imported',
+          kind: 'still',
           width: bitmap.width,
           height: bitmap.height,
           bitmap,
@@ -38,7 +72,7 @@ export function ImportSpecimen() {
         };
         dispatch({ type: 'specimen', specimen: s });
       } catch {
-        setError('The file could not be decoded. Try a JPEG, PNG or WebP.');
+        setError('The file could not be decoded. Try a JPEG, PNG, WebP or MP4.');
       }
     },
     [dispatch],
@@ -52,6 +86,7 @@ export function ImportSpecimen() {
         id: `house-${kind}`,
         name: drawn.name,
         source: 'house',
+        kind: 'still',
         width: drawn.width,
         height: drawn.height,
         bitmap: drawn.canvas,
@@ -104,8 +139,10 @@ export function ImportSpecimen() {
 
             <p className="lbl lbl--wide dropzone__label">Place a photograph here</p>
             <p className="serif dropzone__lead">
-              Drop a file on the table, or choose one. The image is read on this
-              machine and handed straight to the engine — nothing is uploaded.
+              Drop a photograph or a clip on the table, or choose one. It is read
+              on this machine and handed straight to the engine — nothing is
+              uploaded. A moving specimen runs through the same process, frame
+              by frame.
             </p>
             <button className="btn btn--lg btn--primary" type="button" onClick={() => input.current?.click()}>
               Choose a file
@@ -114,7 +151,7 @@ export function ImportSpecimen() {
               ref={input}
               className="sr"
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void accept(f);

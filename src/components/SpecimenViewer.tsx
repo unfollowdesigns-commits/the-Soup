@@ -10,7 +10,9 @@ import { LabRenderer, fitScale, type CompareMode, type RenderStats, type ViewMod
 import { getMaterial } from '../lab/materials';
 import { makeBurn } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
-import type { PhotoRecipe } from '../lab/types';
+import { TraceOverlay } from './TraceOverlay';
+import type { TraceResult } from '../lab/tracker';
+import type { PhotoRecipe, Specimen } from '../lab/types';
 
 /* ============================================================
    SPECIMEN VIEWER
@@ -22,10 +24,12 @@ export type PlacementMode = 'none' | 'burn';
 
 export function SpecimenViewer({
   onStats,
+  onTrace,
   placing,
   onPlaced,
 }: {
   onStats: (s: RenderStats | null) => void;
+  onTrace?: (t: TraceResult | null) => void;
   placing: PlacementMode;
   onPlaced: () => void;
 }) {
@@ -47,7 +51,6 @@ export function SpecimenViewer({
     split: 0.5,
     view: 'color',
   });
-  const [fitZoom, setFitZoom] = useState(1);
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -88,13 +91,6 @@ export function SpecimenViewer({
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!specimen || !size.w) return;
-    setFitZoom(1);
-    schedule();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size.w, size.h, specimen]);
-
   /* ---- draw ---- */
   const draw = useCallback(() => {
     const r = rendererRef.current;
@@ -117,9 +113,25 @@ export function SpecimenViewer({
   }, [draw]);
 
   useEffect(() => {
+    if (specimen?.kind === 'moving') {
+      let live = true;
+      const loop = () => {
+        if (!live) return;
+        const r = rendererRef.current;
+        const v = specimen.video;
+        if (r && v && v.readyState >= 2) r.updateSource(v);
+        draw();
+        frameRef.current = requestAnimationFrame(loop);
+      };
+      loop();
+      return () => {
+        live = false;
+        cancelAnimationFrame(frameRef.current);
+      };
+    }
     schedule();
     return () => cancelAnimationFrame(frameRef.current);
-  }, [schedule, view]);
+  }, [schedule, view, specimen, draw]);
 
   /* ---- interaction: pan, zoom, split ---- */
   const drag = useRef<{ mode: 'pan' | 'split'; x: number; y: number; px: number; py: number } | null>(null);
@@ -201,10 +213,10 @@ export function SpecimenViewer({
         zoomPct={shownZoom}
         onFit={() => setZoom(1)}
         onActual={() => setZoom(oneToOne())}
-        fitZoom={fitZoom}
-        setFitZoom={setFitZoom}
         specimenName={specimen?.name ?? '—'}
         dims={specimen ? `${specimen.width} × ${specimen.height}` : '—'}
+        moving={specimen?.kind === 'moving'}
+        video={specimen?.video}
       />
 
       <div
@@ -234,7 +246,15 @@ export function SpecimenViewer({
           </div>
         ) : null}
 
-        <BurnMarkers recipe={recipe} />
+        <TraceOverlay
+          recipe={recipe}
+          specimen={specimen}
+          view={view}
+          size={size}
+          onResult={onTrace ?? noop}
+        />
+
+        <BurnMarkers recipe={recipe} specimen={specimen} view={view} size={size} />
 
         {error ? (
           <div className="viewer__error">
@@ -261,16 +281,18 @@ function ViewerBar({
   onActual,
   specimenName,
   dims,
+  moving,
+  video,
 }: {
   view: ViewState;
   setView: (fn: (v: ViewState) => ViewState) => void;
   zoomPct: number;
   onFit: () => void;
   onActual: () => void;
-  fitZoom: number;
-  setFitZoom: (n: number) => void;
   specimenName: string;
   dims: string;
+  moving: boolean;
+  video: HTMLVideoElement | undefined;
 }) {
   const compare: { id: CompareMode; label: string }[] = [
     { id: 'single', label: 'Specimen' },
@@ -318,6 +340,8 @@ function ViewerBar({
         ))}
       </div>
 
+      {moving && video ? <Transport video={video} /> : null}
+
       <span className="rule rule--v" />
 
       <button className="btn btn--sm btn--quiet" type="button" onClick={onFit}>Fit</button>
@@ -327,11 +351,122 @@ function ViewerBar({
   );
 }
 
-function BurnMarkers({ recipe }: { recipe: PhotoRecipe }) {
-  if (!recipe.burns.length) return null;
-  return null;
+/* ------------------------------------------------------------
+   BURN MARKS
+   A burn is a place on the frame, so it is moved on the frame.
+   The ring shows the reach of the mark; the engine draws the
+   irregular edge, not this.
+   ------------------------------------------------------------ */
+/* ---- transport for a moving specimen ---- */
+function Transport({ video }: { video: HTMLVideoElement }) {
+  const [playing, setPlaying] = useState(!video.paused);
+  return (
+    <div className="transport">
+      <button
+        className="icb"
+        type="button"
+        aria-label={playing ? 'Hold' : 'Run'}
+        onClick={() => {
+          if (video.paused) {
+            void video.play();
+            setPlaying(true);
+          } else {
+            video.pause();
+            setPlaying(false);
+          }
+        }}
+      >
+        {playing ? (
+          <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
+            <path d="M2 1 v7 M7 1 v7" stroke="currentColor" strokeWidth="1.6" />
+          </svg>
+        ) : (
+          <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
+            <path d="M2 1 L8 4.5 L2 8 Z" fill="currentColor" />
+          </svg>
+        )}
+      </button>
+      <span className="lbl lbl--amber">Moving</span>
+    </div>
+  );
 }
 
+function BurnMarkers({
+  recipe,
+  specimen,
+  view,
+  size,
+}: {
+  recipe: PhotoRecipe;
+  specimen: Specimen | null;
+  view: ViewState;
+  size: { w: number; h: number };
+}) {
+  const dispatch = useDispatch();
+  const drag = useRef<{ id: string; ox: number; oy: number } | null>(null);
+  if (!specimen || !size.w || !recipe.burns.length) return null;
+
+  const fit = fitScale(size.w, size.h, specimen.width, specimen.height);
+  const s = fit * view.zoom;
+  const dw = specimen.width * s;
+  const dh = specimen.height * s;
+  const left = (size.w - dw) / 2;
+  const top = (size.h - dh) / 2;
+  return (
+    <div className="burnmarks">
+      {recipe.burns.map((b, i) => {
+        const x = left + (b.x - view.panX) * dw;
+        const y = top + (b.y + view.panY) * dh;
+        const r = (0.04 + b.spread * 0.5) * dh;
+        return (
+          <button
+            key={b.id}
+            type="button"
+            className="burnmark"
+            data-off={!b.enabled}
+            style={{ left: `${x}px`, top: `${y}px`, width: `${r * 2}px`, height: `${r * 2}px` }}
+            title={`Burn ${i + 1} — drag to move`}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              drag.current = { id: b.id, ox: e.clientX, oy: e.clientY };
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current;
+              if (!d || d.id !== b.id) return;
+              e.stopPropagation();
+              const nx = clamp(b.x + (e.clientX - d.ox) / dw, 0, 1);
+              const ny = clamp(b.y + (e.clientY - d.oy) / dh, 0, 1);
+              d.ox = e.clientX;
+              d.oy = e.clientY;
+              dispatch({
+                type: 'edit',
+                mutate: (rec) => ({
+                  ...rec,
+                  burns: rec.burns.map((z) => (z.id === b.id ? { ...z, x: nx, y: ny } : z)),
+                }),
+              });
+            }}
+            onPointerUp={(e) => {
+              if (!drag.current) return;
+              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+              drag.current = null;
+              dispatch({
+                type: 'log',
+                spec: { kind: 'burn', title: `Burn ${i + 1} Moved`, detail: `${b.x.toFixed(2)}, ${b.y.toFixed(2)}` },
+              });
+            }}
+          >
+            <span className="burnmark__ring" />
+            <span className="burnmark__no mono">{String(i + 1).padStart(2, '0')}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const noop = () => {};
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 function screenToImage(

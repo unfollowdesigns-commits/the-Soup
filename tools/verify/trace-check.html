@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>trace</title>
+<style>body{margin:0;background:#0e0d0c;font:11px ui-monospace,monospace;color:#a89f8e}
+.g{display:grid;grid-template-columns:repeat(3,420px);gap:10px;padding:10px}
+figcaption{padding:4px 0;letter-spacing:.1em;text-transform:uppercase}</style></head><body>
+<div class="g" id="g"></div>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe, traceCount } from '/src/lab/recipe.ts';
+  import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+  import { Tracker } from '/src/lab/tracker.ts';
+  window.__result={status:'running'};
+  try {
+    const spec = makeHouseSpecimen('window', 1200, 800);
+    const W=420,H=280;
+    const cases = [
+      ['sequence 3x4', r=>{ r.sequence.enabled=true; r.sequence.rows=3; r.sequence.cols=4; r.sequence.drift=0.4; }],
+      ['dither 1.0',   r=>{ r.raster.dither=1; r.raster.levels=0.8; r.grain.amount=0; }],
+      ['comb + scan',  r=>{ r.raster.comb=0.6; r.raster.scanline=0.4; }],
+    ];
+    const g=document.getElementById('g'); let last=null;
+    for (const [label,tune] of cases) {
+      const fig=document.createElement('figure'); fig.style.margin=0;
+      const c=document.createElement('canvas'); c.width=W;c.height=H;c.style.display='block';
+      const cap=document.createElement('figcaption'); cap.textContent=label;
+      fig.append(c,cap); g.append(fig);
+      const r=new LabRenderer(c); r.setSource(spec.canvas,spec.width,spec.height); r.resize(W,H,1);
+      await new Promise(res=>setTimeout(res,220));
+      const rec=defaultRecipe('kodak-portra'); tune(rec);
+      r.render(rec,getMaterial('kodak-portra'),{zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'});
+      last=r;
+    }
+    // tracker on the drawn specimen
+    const tk=new Tracker();
+    const rec=defaultRecipe('kodak-portra'); rec.trace.enabled=true; rec.trace.density=0.4;
+    let res;
+    const times=[];
+    for (let i=0;i<12;i++){ const t0=performance.now();
+      res=tk.analyse(spec.canvas, spec.width, spec.height,{count:traceCount(rec),sensitivity:0.6,motionWeight:0.5});
+      times.push(+(performance.now()-t0).toFixed(2)); }
+    window.__result={status:'ok',glError:last.gl.getError(),
+      trace:{boxes:res.boxes.length, ms:+res.ms.toFixed(2), times, grid:`${res.gridW}x${res.gridH}`,
+             motionAvailable:res.motionAvailable,
+             sample:res.boxes.slice(0,3).map(b=>({id:b.id,x:+b.x.toFixed(2),y:+b.y.toFixed(2),w:+b.w.toFixed(2),e:+b.energy.toFixed(3)}))}};
+  } catch(e){ window.__result={status:'error',message:String(e&&e.stack||e)}; }
+</script></body></html>

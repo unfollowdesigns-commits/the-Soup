@@ -5,6 +5,8 @@ import type {
   PhotoRecipe,
   SoupChemical,
   StageId,
+  TraceColour,
+  TraceMode,
 } from './types';
 import { getMaterial, MATERIALS } from './materials';
 
@@ -85,6 +87,22 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
     },
     burns: [],
     depth: { enabled: false, influence: 0.4, target: ['grain', 'haze'] },
+    trace: {
+      enabled: false,
+      mode: 'boxes',
+      density: 0.28,
+      sensitivity: 0.6,
+      motion: 0.5,
+      labels: true,
+      links: 0,
+      weight: 0.4,
+      colour: 'paper',
+      jitter: 0.2,
+      glyphs: ' .:-=+*#%@',
+      cell: 0.62,
+    },
+    sequence: { enabled: false, rows: 3, cols: 4, drift: 0.3, stamp: true, gutter: 0.3 },
+    raster: { dither: 0, levels: 0.5, comb: 0, scanline: 0 },
   };
 }
 
@@ -202,6 +220,30 @@ export const SOUP_TINT: Record<SoupChemical, [number, number, number]> = {
   seawater: [0.36, 0.6, 0.52],
 };
 
+export const TRACE_MODES: { id: TraceMode; label: string; note: string }[] = [
+  { id: 'boxes', label: 'Boxes', note: 'One rectangle per tracked region, with its measured values.' },
+  { id: 'swarm', label: 'Swarm', note: 'Every region subdivided — a dense field of nested rectangles.' },
+  { id: 'points', label: 'Points', note: 'Centroids only. The quietest of the five.' },
+  { id: 'links', label: 'Links', note: 'Centroids joined into a constellation as they move.' },
+  { id: 'type', label: 'Typographic', note: 'The frame re-set in characters, one glyph per cell.' },
+];
+
+export const TRACE_COLOURS: { id: TraceColour; label: string; css: string }[] = [
+  { id: 'paper', label: 'Paper', css: '#f4efe4' },
+  { id: 'amber', label: 'Amber', css: '#d99a3f' },
+  { id: 'ice', label: 'Ice', css: '#9fd4e8' },
+  { id: 'ember', label: 'Ember', css: '#e2622c' },
+  { id: 'source', label: 'From image', css: 'currentColor' },
+];
+
+export const GLYPH_RAMPS: { id: string; label: string }[] = [
+  { id: ' .:-=+*#%@', label: 'Density' },
+  { id: ' .·:¦|╎┆┊║', label: 'Rule' },
+  { id: ' ▁▂▃▄▅▆▇█', label: 'Block' },
+  { id: ' recumbre', label: 'Word' },
+  { id: ' 01', label: 'Binary' },
+];
+
 export const STAGE_LABEL: Record<StageId, string> = {
   material: 'Material',
   exposure: 'Exposure',
@@ -214,6 +256,9 @@ export const STAGE_LABEL: Record<StageId, string> = {
   soup: 'Film Soup',
   damage: 'Damage',
   depth: 'Depth',
+  trace: 'Trace',
+  sequence: 'Sequence',
+  raster: 'Raster',
 };
 
 export const STAGE_ORDER: StageId[] = [
@@ -228,6 +273,9 @@ export const STAGE_ORDER: StageId[] = [
   'soup',
   'damage',
   'depth',
+  'trace',
+  'sequence',
+  'raster',
 ];
 
 /* ============================================================
@@ -279,8 +327,26 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
     }
     case 'depth':
       return r.depth.enabled ? `Influence ${r.depth.influence.toFixed(2)}` : 'Off';
+    case 'trace':
+      return r.trace.enabled
+        ? `${labelOf(TRACE_MODES, r.trace.mode)} · ${Math.round(traceCount(r))}`
+        : 'Off';
+    case 'sequence':
+      return r.sequence.enabled ? `${r.sequence.rows} × ${r.sequence.cols}` : 'Off';
+    case 'raster': {
+      const a = [
+        r.raster.dither > 0 && 'Dither',
+        r.raster.comb > 0 && 'Comb',
+        r.raster.scanline > 0 && 'Scan',
+      ].filter(Boolean) as string[];
+      return a.length ? a.join(' · ') : 'Off';
+    }
   }
 }
+
+/** the tracker is asked for this many regions */
+export const traceCount = (r: PhotoRecipe) =>
+  2 + Math.round(Math.pow(r.trace.density, 1.5) * 260);
 
 const labelOf = <T extends { id: string; label: string }>(list: T[], id: string) =>
   list.find((x) => x.id === id)?.label ?? id;
@@ -331,6 +397,12 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
     }
     case 'depth':
       return r.depth.enabled;
+    case 'trace':
+      return r.trace.enabled;
+    case 'sequence':
+      return r.sequence.enabled;
+    case 'raster':
+      return r.raster.dither > 0 || r.raster.comb > 0 || r.raster.scanline > 0;
   }
 }
 
