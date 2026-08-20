@@ -1,0 +1,110 @@
+/* ============================================================
+   LIGHT BENCH
+   ============================================================ */
+
+.light {
+  display: grid;
+  grid-template-rows: var(--bar) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  max-width: 100vw;
+  overflow: hidden;
+  background: var(--k-000);
+}
+.light__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0 var(--s3) 0 var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.light__body { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail); min-height: 0; }
+
+.light__stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+  background: var(--k-000);
+}
+.light__canvas { display: block; width: 100%; height: 100%; }
+
+/* the lamp itself, on the frame */
+.light__pin {
+  position: absolute;
+  width: 20px; height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.7), 0 0 22px 6px currentColor;
+  cursor: grab;
+  opacity: 0.85;
+}
+.light__pin[data-sel='true'] { outline: 2px solid var(--paper); outline-offset: 2px; opacity: 1; }
+.light__pin i {
+  font-style: normal;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  color: rgba(0,0,0,0.75);
+}
+
+.light__dead {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--s3); text-align: center; padding: var(--s6);
+}
+.light__dead .mono { max-width: 46ch; }
+
+/* ---- the overlay ---- */
+.light__hud {
+  position: absolute;
+  left: var(--s4);
+  top: var(--s4);
+  min-width: 208px;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  background: rgba(6, 6, 6, 0.82);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+.light__hud-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); }
+.light__hud-row .mono--val { font-size: var(--t-body); }
+.light__hud-src {
+  display: flex; flex-direction: column; gap: 1px;
+  margin: var(--s2) 0;
+  padding: var(--s2);
+  border-left: 2px solid var(--acid);
+  background: rgba(198, 240, 49, 0.07);
+}
+.light__hud-src[data-proxy='true'] { border-left-color: var(--ember); background: rgba(255, 77, 25, 0.08); }
+.light__hud-src[data-proxy='true'] .mono { color: var(--ember); }
+.light__hud-times { margin: var(--s2) 0; }
+.light__hud-times li { display: flex; justify-content: space-between; gap: var(--s3); padding: 1px 0; }
+.light__hud-note {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--t-nano);
+  color: var(--acid);
+  letter-spacing: 0.08em;
+}
+
+.light__rail { border-left: 1px solid var(--line); background: var(--k-100); min-height: 0; padding-bottom: var(--s7); }
+.light__group { padding: var(--s3) var(--s4) var(--s5); }
+.light__lamps { display: flex; flex-wrap: wrap; gap: var(--s2); padding: var(--s3) var(--s4) 0; }
+.light__lamp {
+  width: 28px; height: 28px;
+  border: 2px solid var(--line);
+  background: var(--k-200);
+  font-family: var(--f-mono);
+  font-size: var(--t-micro);
+  color: var(--paper-dim);
+}
+.light__lamp[aria-pressed='true'] { background: var(--k-300); color: var(--paper); }
+
+@media (max-width: 1000px) {
+  .light__body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .light__rail { border-left: 0; border-top: 1px solid var(--line); max-height: 44vh; }
+}

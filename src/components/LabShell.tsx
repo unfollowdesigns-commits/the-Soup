@@ -74,6 +74,15 @@ export function LabShell() {
         <button
           className="btn"
           type="button"
+          onClick={() => dispatch({ type: 'screen', screen: 'light' })}
+          disabled={!specimen}
+          title="Depth-aware light injection, WebGPU"
+        >
+          Light
+        </button>
+        <button
+          className="btn"
+          type="button"
           onClick={() => dispatch({ type: 'screen', screen: 'press' })}
           disabled={!specimen}
         >

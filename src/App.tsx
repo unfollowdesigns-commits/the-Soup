@@ -1,6 +1,7 @@
 import { LabShell } from './components/LabShell';
 import { MobileLab } from './mobile/MobileLab';
 import { useLab } from './lab/store';
+import { LightBench } from './gpu/LightBench';
 import { PressBench } from './poster/PressBench';
 import { EnterLab } from './screens/EnterLab';
 import { ImportSpecimen } from './screens/ImportSpecimen';
@@ -13,5 +14,6 @@ export default function App() {
   if (screen === 'enter') return <EnterLab />;
   if (screen === 'import') return <ImportSpecimen />;
   if (screen === 'press') return <PressBench />;
+  if (screen === 'light') return <LightBench />;
   return compact ? <MobileLab /> : <LabShell />;
 }
