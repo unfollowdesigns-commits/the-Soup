@@ -10,7 +10,9 @@ import { LabRenderer, fitScale, type CompareMode, type RenderStats, type ViewMod
 import { getMaterial } from '../lab/materials';
 import { makeBurn } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
+import { useVision } from '../vision/useVision';
 import { LookStrip } from './LookStrip';
+import { VisionLayer } from '../vision/VisionLayer';
 import { TraceOverlay } from './TraceOverlay';
 import type { TraceResult } from '../lab/tracker';
 import type { PhotoRecipe, Specimen } from '../lab/types';
@@ -34,6 +36,7 @@ export function SpecimenViewer({
   placing: PlacementMode;
   onPlaced: () => void;
 }) {
+  const vision = useVision();
   const { specimen, recipe } = useLab();
   const dispatch = useDispatch();
 
@@ -247,6 +250,16 @@ export function SpecimenViewer({
             )}
           </div>
         ) : null}
+
+        <VisionLayer
+          specimen={specimen}
+          view={view}
+          size={size}
+          style={vision.style}
+          binding={vision.binding}
+          onStatus={vision.setStatus}
+          onRead={vision.setRead}
+        />
 
         <TraceOverlay
           recipe={recipe}

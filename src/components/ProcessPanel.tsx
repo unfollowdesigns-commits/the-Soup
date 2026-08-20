@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { getMaterial, KIND_LABEL } from '../lab/materials';
 import {
   DEV_LABEL,
@@ -29,6 +29,9 @@ import type {
   StageId,
 } from '../lab/types';
 import { ExposureScale, Instrument, Module, Segmented, SeedField } from './Instrument';
+import { useVision } from '../vision/useVision';
+import { ACTION_LABEL, PINCH_TARGETS, type GestureAction } from '../vision/gestures';
+import { STAGE_LABEL as SL } from '../lab/recipe';
 
 /* ============================================================
    THE WORKSTATION
@@ -78,6 +81,7 @@ export function ProcessPanel({
     trace: false,
     sequence: false,
     raster: false,
+    vision: false,
   });
   const dispatch = useDispatch();
   const show = (id: StageId) => !only || only.includes(id);
@@ -109,6 +113,7 @@ export function ProcessPanel({
       {show('trace') && <TraceModule mod={mod('trace')} />}
       {show('sequence') && <SequenceModule mod={mod('sequence')} />}
       {show('raster') && <RasterModule mod={mod('raster')} />}
+      {show('vision') && <VisionModule mod={mod('vision')} />}
     </>
   );
 
@@ -892,6 +897,132 @@ function RasterModule({ mod }: { mod: ModProps }) {
       />
       <Instrument label="Scan comb" value={ra.comb} {...p('comb', 'Scan Comb')} />
       <Instrument label="Scanline" value={ra.scanline} {...p('scanline', 'Scanline')} />
+    </Module>
+  );
+}
+
+/* ---------------- VISION ----------------
+   Face and hand landmarks from a real model, and a hand bound to
+   the cook. Only useful on something that moves, and it says so
+   rather than pretending otherwise. */
+function VisionModule({ mod }: { mod: ModProps }) {
+  const { specimen } = useLab();
+  const v = useVision();
+  const moving = specimen?.kind === 'moving';
+  const s = v.style;
+  const b = v.binding;
+  const st = v.status;
+
+  return (
+    <Module title="Vision" {...mod} accent="blue">
+      <div className="vis__state">
+        <span
+          className="lamp"
+          data-state={
+            st.state === 'ready' ? 'on' : st.state === 'loading' ? 'busy' : st.state === 'failed' ? 'warn' : 'off'
+          }
+        />
+        <span className="mono">
+          {!moving
+            ? 'Needs a clip or the camera'
+            : st.state === 'idle'
+              ? 'Not started'
+              : st.state === 'loading'
+                ? 'Loading models'
+                : st.state === 'ready'
+                  ? `Face + hands · ${st.backend}`
+                  : st.reason}
+        </span>
+      </div>
+
+      {v.read ? (
+        <div className="vis__counts">
+          <div>
+            <span className="lbl">Faces</span>
+            <span className="mono mono--val">{v.read.faces.length}</span>
+          </div>
+          <div>
+            <span className="lbl">Hands</span>
+            <span className="mono mono--val">{v.read.hands.length}</span>
+          </div>
+          <div>
+            <span className="lbl">Inference</span>
+            <span className="mono mono--val">{v.read.ms.toFixed(1)} ms</span>
+          </div>
+        </div>
+      ) : null}
+
+      <Instrument label="Squares" value={s.boxes} onChange={(x) => v.setStyle({ boxes: x })} />
+      <Instrument label="Mesh" value={s.mesh} onChange={(x) => v.setStyle({ mesh: x })} />
+      <Instrument label="Contours" value={s.contours} onChange={(x) => v.setStyle({ contours: x })} />
+      <Instrument label="Iris" value={s.iris} onChange={(x) => v.setStyle({ iris: x })} />
+      <Instrument label="Hands" value={s.hands} onChange={(x) => v.setStyle({ hands: x })} />
+      <Instrument
+        label="Connecting lines"
+        value={s.constellation}
+        note="Every face and hand the model found, joined."
+        onChange={(x) => v.setStyle({ constellation: x })}
+      />
+      <Instrument label="Stroke" value={s.weight} min={0.5} max={3} step={0.1}
+        onChange={(x) => v.setStyle({ weight: x })} />
+
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Labels</span>
+        <span className="spacer" />
+        <button className="btn btn--sm" type="button" aria-pressed={s.labels}
+          onClick={() => v.setStyle({ labels: !s.labels })}>
+          {s.labels ? 'Shown' : 'Hidden'}
+        </button>
+      </div>
+
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Hand drives the cook</span>
+        <span className="spacer" />
+        <button className="btn btn--sm" type="button" aria-pressed={b.enabled}
+          onClick={() => v.setBinding({ enabled: !b.enabled })}>
+          {b.enabled ? 'On' : 'Off'}
+        </button>
+      </div>
+
+      {b.enabled ? (
+        <>
+          <div className="vis__pinch">
+            <span className="instr__label">Pinch</span>
+            <span className="vis__pinch-bar">
+              <i style={{ width: `${Math.round((v.live?.value ?? 0) * 100)}%` }} />
+            </span>
+            <span className="mono mono--val">{((v.live?.value ?? 0)).toFixed(2)}</span>
+          </div>
+
+          <div className="chemgrid">
+            {PINCH_TARGETS.map((t) => (
+              <button key={t} type="button" className="chem"
+                aria-pressed={b.pinchTarget === t}
+                onClick={() => v.setBinding({ pinchTarget: t })}>
+                {SL[t]}
+              </button>
+            ))}
+          </div>
+
+          <div className="vis__actions">
+            {Object.keys(b.actions).map((g) => (
+              <Fragment key={g}>
+                <span className="mono mono--dim">{g.replace(/_/g, ' ')}</span>
+                <select
+                  value={b.actions[g]}
+                  onChange={(e) =>
+                    v.setBinding({ actions: { ...b.actions, [g]: e.target.value as GestureAction } })
+                  }
+                >
+                  {(Object.keys(ACTION_LABEL) as GestureAction[]).map((a) => (
+                    <option key={a} value={a}>{ACTION_LABEL[a]}</option>
+                  ))}
+                </select>
+              </Fragment>
+            ))}
+          </div>
+        </>
+      ) : null}
     </Module>
   );
 }

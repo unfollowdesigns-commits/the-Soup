@@ -157,6 +157,8 @@ export const DIALS: Record<StageId, Dial> = {
     set: (r, v) => ({ ...r, raster: { ...r.raster, dither: clamp01(v) } }),
     wake: 0.8,
   },
+  /* vision is a way of looking, not a quantity in the recipe */
+  vision: { get: () => 0, set: (r) => r, wake: 0, chooseOnly: true },
 };
 
 /** wake a dormant stage, or put it back to sleep */

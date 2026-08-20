@@ -135,3 +135,76 @@ The build environment has no WebGPU adapter — `navigator.gpu` exists and
 path in this repository is **type-checked and built, not run**. The
 fallback is verified: without an adapter the bench says what is missing and
 the rest of SOUP carries on unaffected on WebGL2.
+
+---
+
+# Vision
+
+Face and hand landmarks come from a real model — MediaPipe Tasks Vision,
+Apache-2.0 — not from a heuristic. 478 face points with tesselation,
+contour and iris connectors; 21 points per hand with a canned gesture
+classifier and handedness.
+
+## Assets
+
+~12 MB of models and ~23 MB of WASM. Fetched, never committed:
+
+```bash
+npm run vision:assets
+```
+
+WASM is copied from the installed package; models come from Google's model
+CDN. Both land in `public/vision`, both are git-ignored. If they are absent
+the layer says `Vision assets are missing. Run: npm run vision:assets` and
+everything else keeps working.
+
+The MediaPipe bundle is dynamically imported, so nothing pays for it until
+the vision layer is actually asked for.
+
+## What is drawn
+
+| layer | source |
+| --- | --- |
+| face squares with corner ticks | landmark extents |
+| mesh | `FACE_LANDMARKS_TESSELATION` |
+| contours, lips, oval | the matching connector tables |
+| iris rings | `FACE_LANDMARKS_LEFT/RIGHT_IRIS` |
+| hand skeleton | `HAND_CONNECTIONS` |
+| constellation | every face centre, wrist and pinch point, joined |
+
+Labels print measured quantities only — box size in frame units, landmark
+count, pinch distance, and the gesture the classifier returned with its
+score. Nothing that does not report a confidence is given one.
+
+## A hand as an input device
+
+`pinch` is the measured distance between thumb tip and index tip. It is
+continuous, so it drives a dial: pick any stage and the pinch cooks it,
+lightly smoothed because raw landmarks jitter.
+
+The canned gestures are discrete, so they fire actions once, on the edge,
+after being held ~380 ms — a classifier flickering between two labels would
+otherwise fire sixty times a second.
+
+| gesture | default |
+| --- | --- |
+| Open_Palm | next look |
+| Closed_Fist | turn the bound stage off |
+| Victory | roll the dice |
+| Thumb_Up | keep the recipe |
+
+All rebindable in the Vision module.
+
+## Deliberately not in the recipe
+
+How the lab *looks at* a frame is not part of how the frame was *cooked*.
+Vision settings live outside `PhotoRecipe` so an archived recipe stays
+reproducible on a machine with no camera.
+
+## Verified here
+
+Models load and initialise (`Face + hands · GPU`), the layer reports counts
+and inference time. Faces and hands read zero because the test browser's
+fake camera is a synthetic pattern with nobody in it. The ~1 s inference in
+the readout is a cold first frame under software rendering — it is a real
+measurement of this machine, not a claim about yours.

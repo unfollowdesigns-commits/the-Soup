@@ -3,14 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "A digital photographic laboratory — material archive, development, and experimental processing.",
+  "description": "A digital photographic laboratory \u2014 material archive, development, and experimental processing.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false --pretty"
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false --pretty",
+    "vision:assets": "node tools/fetch-vision-assets.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "typegpu": "^0.12.0"

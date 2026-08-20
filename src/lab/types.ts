@@ -344,7 +344,8 @@ export type StageId =
   | 'depth'
   | 'trace'
   | 'sequence'
-  | 'raster';
+  | 'raster'
+  | 'vision';
 
 export interface StageState {
   id: StageId;

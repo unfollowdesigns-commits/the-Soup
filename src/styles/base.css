@@ -296,3 +296,12 @@ img { display: block; max-width: 100%; }
 }
 .hr--hard { background: var(--paper); height: 2px; }
 .hr--acid { background: var(--acid); height: 2px; }
+
+.bench-wait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  height: 100%;
+  background: var(--k-000);
+}

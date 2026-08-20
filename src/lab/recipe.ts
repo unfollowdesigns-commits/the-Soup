@@ -259,6 +259,7 @@ export const STAGE_LABEL: Record<StageId, string> = {
   trace: 'Trace',
   sequence: 'Sequence',
   raster: 'Raster',
+  vision: 'Vision',
 };
 
 export const STAGE_ORDER: StageId[] = [
@@ -277,6 +278,9 @@ export const STAGE_ORDER: StageId[] = [
   'sequence',
   'raster',
 ];
+
+/** Vision is a way of looking at the frame, not a step in the cook, so it
+ *  is controllable but never on the recipe strip. */
 
 /* ============================================================
    STAGE SUMMARY — what the process stack prints on each card
@@ -341,6 +345,8 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
       ].filter(Boolean) as string[];
       return a.length ? a.join(' · ') : 'Off';
     }
+    case 'vision':
+      return 'Live';
   }
 }
 
@@ -403,6 +409,8 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
       return r.sequence.enabled;
     case 'raster':
       return r.raster.dither > 0 || r.raster.comb > 0 || r.raster.scanline > 0;
+    case 'vision':
+      return false;
   }
 }
 

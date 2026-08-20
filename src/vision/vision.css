@@ -1,0 +1,44 @@
+.visionlayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ---- the vision module in the rail ---- */
+.vis__state {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) 0 var(--s3);
+}
+.vis__state .mono { font-size: var(--t-nano); }
+.vis__counts {
+  display: flex;
+  gap: var(--s4);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: var(--s3);
+}
+.vis__counts div { display: flex; flex-direction: column; gap: 1px; }
+.vis__counts .mono--val { font-size: var(--t-body); }
+.vis__pinch {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+}
+.vis__pinch-bar { flex: 1; height: 4px; background: var(--k-300); }
+.vis__pinch-bar i { display: block; height: 100%; background: var(--acid); }
+.vis__actions { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding-top: var(--s2); }
+.vis__actions select {
+  height: 24px;
+  border: 1px solid var(--line);
+  background: var(--k-000);
+  color: var(--paper-dim);
+  font-family: var(--f-mono);
+  font-size: var(--t-nano);
+  padding: 0 4px;
+}

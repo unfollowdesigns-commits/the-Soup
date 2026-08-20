@@ -3,3 +3,7 @@ dist
 .DS_Store
 *.local
 .vite
+
+# vision assets: fetched, not committed (see tools/fetch-vision-assets.mjs)
+public/vision/wasm/
+public/vision/models/
