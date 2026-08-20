@@ -14,6 +14,7 @@ export function ImportSpecimen() {
   const dispatch = useDispatch();
   const { specimen } = useLab();
   const [over, setOver] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -77,6 +78,63 @@ export function ImportSpecimen() {
     },
     [dispatch],
   );
+
+  /* ---- the camera ----------------------------------------
+     Live capture is just a moving specimen: the same engine runs
+     on every frame, so every look, every cook and the trace layer
+     work on it exactly as they do on a file. */
+  const openCamera = useCallback(async () => {
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('This browser will not hand over a camera.');
+      return;
+    }
+    setOpening(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      await new Promise<void>((res, rej) => {
+        video.onloadedmetadata = () => res();
+        video.onerror = () => rej(new Error('no signal'));
+      });
+      await video.play();
+      dispatch({
+        type: 'specimen',
+        specimen: {
+          id: `cam-${Date.now().toString(36)}`,
+          name: 'Camera',
+          source: 'camera',
+          kind: 'moving',
+          width: video.videoWidth,
+          height: video.videoHeight,
+          bitmap: video,
+          video,
+          stream,
+          importedAt: Date.now(),
+          note: 'Live. Every look runs on it frame by frame.',
+        },
+      });
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : '';
+      setError(
+        name === 'NotAllowedError'
+          ? 'The camera was refused. Allow it in the address bar and try again.'
+          : name === 'NotFoundError'
+            ? 'No camera on this machine.'
+            : !window.isSecureContext
+              ? 'A camera needs https or localhost. This page is neither.'
+              : 'The camera would not open.',
+      );
+    } finally {
+      setOpening(false);
+    }
+  }, [dispatch]);
 
   const house = (kind: HouseSpecimen) => {
     const drawn = makeHouseSpecimen(kind, 1800, 1200);
@@ -161,6 +219,27 @@ export function ImportSpecimen() {
         </AnalogSurface>
 
         <aside className="import__house">
+          <button
+            className="camcard"
+            type="button"
+            disabled={opening}
+            onClick={() => void openCamera()}
+          >
+            <span className="camcard__eye" aria-hidden="true">
+              <span />
+            </span>
+            <span>
+              <span className="camcard__name">
+                {opening ? 'Opening…' : 'Open the camera'}
+              </span>
+              <span className="mono mono--dim">
+                Live. Cooks every frame as it comes in.
+              </span>
+            </span>
+          </button>
+
+          <hr className="hr" />
+
           <h2 className="lbl lbl--wide">Nothing to hand</h2>
           <p className="import__note">
             Two images the lab drew itself. Neither is a photograph and neither

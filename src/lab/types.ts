@@ -314,13 +314,15 @@ export interface LogEntry {
 export interface Specimen {
   id: string;
   name: string;
-  source: 'imported' | 'house';
+  source: 'imported' | 'house' | 'camera';
   kind: 'still' | 'moving';
   width: number;
   height: number;
   bitmap: ImageBitmap | HTMLImageElement | HTMLCanvasElement | HTMLVideoElement;
   /** present when kind is 'moving'; the same engine runs every frame */
   video?: HTMLVideoElement;
+  /** live capture, so it can be stopped when the specimen is swapped */
+  stream?: MediaStream;
   duration?: number;
   importedAt: number;
   fileSize?: number;

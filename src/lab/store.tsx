@@ -142,6 +142,8 @@ export function reducer(state: LabState, action: Action): LabState {
       return { ...state, screen: action.screen };
 
     case 'specimen': {
+      // a live camera keeps the lamp on until it is told not to
+      state.specimen?.stream?.getTracks().forEach((t) => t.stop());
       const log = pushLog(
         state,
         {

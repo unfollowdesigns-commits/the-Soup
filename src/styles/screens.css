@@ -227,3 +227,36 @@
   .import__body { grid-template-columns: minmax(0, 1fr); padding: var(--s4); }
   .dropzone__inner { padding: var(--s5); }
 }
+
+/* ---- the camera ---- */
+.camcard {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) var(--s3);
+  text-align: left;
+  border: 1px solid var(--acid);
+  background: rgba(198, 240, 49, 0.07);
+  transition: background var(--d1) var(--e);
+}
+.camcard:hover:not(:disabled) { background: var(--acid); }
+.camcard:hover:not(:disabled) .camcard__name,
+.camcard:hover:not(:disabled) .mono { color: var(--acid-ink); }
+.camcard:hover:not(:disabled) .camcard__eye { border-color: var(--acid-ink); }
+.camcard:hover:not(:disabled) .camcard__eye span { background: var(--acid-ink); }
+.camcard:disabled { opacity: 0.6; }
+.camcard > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.camcard__name { font-size: var(--t-body); font-weight: 800; color: var(--acid); }
+.camcard .mono { font-size: var(--t-nano); }
+.camcard__eye {
+  width: 34px; height: 34px; flex: none;
+  border: 2px solid var(--acid);
+  border-radius: 50%;
+  display: grid; place-items: center;
+}
+.camcard__eye span {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--acid);
+  animation: cam-live 1.6s var(--e) infinite;
+}
+@keyframes cam-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

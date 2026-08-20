@@ -21,6 +21,29 @@ export interface Look {
 
 export const LOOKS: Look[] = [
   {
+    id: 'house',
+    name: 'House Soup',
+    note: 'What the shop makes if you do not ask. Portra, warm chemistry, a light bath.',
+    material: 'kodak-portra',
+    apply: (r) => {
+      r.exposure.ev = 0.45;
+      r.exposure.contrast = -0.06;
+      r.grain.amount = 0.46;
+      r.halation.intensity = 0.5;
+      r.halation.radius = 0.4;
+      r.halation.threshold = 0.64;
+      r.diffusion.bloom = 0.26;
+      // the shop's own bath: present, not shouting
+      r.experimental.filmSoup = 0.3;
+      r.experimental.soupChemical = 'coffee';
+      r.experimental.contamination = 0.45;
+      r.experimental.bleed = 0.4;
+      r.experimental.soupDensity = 0.3;
+      r.experimental.dust = 0.2;
+      r.optics.vignette = 0.28;
+    },
+  },
+  {
     id: 'trix-push',
     name: 'Tri-X / Push +2',
     note: 'Reportage. Contrast up, grain structural, printed hard.',
@@ -245,4 +268,4 @@ export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   return next;
 }
 
-export const DEFAULT_LOOK = 'portra-glow';
+export const DEFAULT_LOOK = 'house';

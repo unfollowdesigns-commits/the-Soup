@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { getMaterial } from '../lab/materials';
 import {
   STAGE_LABEL,
@@ -12,7 +12,8 @@ import {
   stageSummary,
 } from '../lab/recipe';
 import { timeOf, timeOfSec, useDispatch, useLab } from '../lab/store';
-import type { LogEntry, StageId } from '../lab/types';
+import type { LogEntry, PhotoRecipe, StageId } from '../lab/types';
+import { DIALS, toggleStage } from '../lab/stageDial';
 import { Cross } from './MaterialDetail';
 
 /* ============================================================
@@ -101,62 +102,22 @@ export function ExperimentStack() {
   return (
     <div className="stack">
       <ol className="stack__row">
-        {stack.map((s, i) => {
-          const active = stageActive(s.id, recipe) && s.enabled;
-          return (
-            <li key={s.id} className="stagecard" data-on={s.enabled} data-active={active}>
-              <div className="stagecard__head">
-                <span className="mono mono--dim stagecard__idx">{String(i + 1).padStart(2, '0')}</span>
-                <span className="lamp" data-state={active ? 'on' : s.enabled ? 'off' : 'off'} />
-                <span className="spacer" />
-                <div className="stagecard__tools">
-                  <button
-                    className="icb icb--xs"
-                    type="button"
-                    title="Move earlier"
-                    disabled={i === 0}
-                    onClick={() => dispatch({ type: 'stack:move', id: s.id, dir: -1 })}
-                  >
-                    <Arrow dir="left" />
-                  </button>
-                  <button
-                    className="icb icb--xs"
-                    type="button"
-                    title="Move later"
-                    disabled={i === stack.length - 1}
-                    onClick={() => dispatch({ type: 'stack:move', id: s.id, dir: 1 })}
-                  >
-                    <Arrow dir="right" />
-                  </button>
-                  <button
-                    className="icb icb--xs"
-                    type="button"
-                    title={s.enabled ? 'Disable' : 'Enable'}
-                    data-on={s.enabled}
-                    onClick={() => dispatch({ type: 'stack:toggle', id: s.id })}
-                  >
-                    <Dot />
-                  </button>
-                  <button
-                    className="icb icb--xs"
-                    type="button"
-                    title="Remove from the stack"
-                    onClick={() => dispatch({ type: 'stack:remove', id: s.id })}
-                  >
-                    <Cross />
-                  </button>
-                </div>
-              </div>
-              <p className="stagecard__name lbl lbl--lit">{STAGE_LABEL[s.id]}</p>
-              <p className="stagecard__value mono">{stageSummary(s.id, recipe)}</p>
-            </li>
-          );
-        })}
+        {stack.map((s, i) => (
+          <StageCard
+            key={s.id}
+            id={s.id}
+            index={i}
+            enabled={s.enabled}
+            first={i === 0}
+            last={i === stack.length - 1}
+            recipe={recipe}
+          />
+        ))}
       </ol>
 
       {missing.length ? (
         <div className="stack__missing">
-          <span className="lbl">Off the stack</span>
+          <span className="lbl">Off the strip</span>
           {missing.map((id) => (
             <button
               key={id}
@@ -170,6 +131,160 @@ export function ExperimentStack() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------
+   A STAGE CARD IS AN INSTRUMENT
+   Drag it sideways to cook. Click a sleeping one to wake it. A
+   card that only ever said "None" told you a thing existed and
+   gave you no way to reach it.
+   ------------------------------------------------------------ */
+function StageCard({
+  id,
+  index,
+  enabled,
+  first,
+  last,
+  recipe,
+}: {
+  id: StageId;
+  index: number;
+  enabled: boolean;
+  first: boolean;
+  last: boolean;
+  recipe: PhotoRecipe;
+}) {
+  const dispatch = useDispatch();
+  const dial = DIALS[id];
+  const value = dial.get(recipe);
+  const live = stageActive(id, recipe) && enabled;
+  const drag = useRef<{ x: number; v: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const commit = (v: number) =>
+    dispatch({ type: 'edit', mutate: (r) => dial.set(r, v) });
+
+  const down = (e: RPointerEvent<HTMLDivElement>) => {
+    if (dial.chooseOnly) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, v: value, moved: false };
+    setDragging(true);
+  };
+  const move = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    if (Math.abs(dx) > 3) d.moved = true;
+    if (!d.moved) return;
+    commit(Math.min(1, Math.max(0, d.v + dx / 150)));
+  };
+  const up = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    drag.current = null;
+    setDragging(false);
+    if (!d.moved) {
+      // a tap wakes a sleeping stage, or puts a running one to sleep
+      dispatch({
+        type: 'edit',
+        mutate: (r) => toggleStage(r, id),
+        log: {
+          kind: 'experiment',
+          title: `${STAGE_LABEL[id]} ${live ? 'off' : 'on'}`,
+          detail: stageSummary(id, recipe),
+        },
+      });
+    } else {
+      dispatch({
+        type: 'log',
+        spec: { kind: 'experiment', title: STAGE_LABEL[id], detail: stageSummary(id, recipe) },
+      });
+    }
+  };
+
+  return (
+    <li
+      className="stagecard"
+      data-on={enabled}
+      data-live={live}
+      data-dragging={dragging}
+      data-choose={!!dial.chooseOnly}
+    >
+      <div
+        className="stagecard__grip"
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        role={dial.chooseOnly ? undefined : 'slider'}
+        aria-valuenow={dial.chooseOnly ? undefined : Math.round(value * 100)}
+        aria-label={STAGE_LABEL[id]}
+        tabIndex={dial.chooseOnly ? -1 : 0}
+        onKeyDown={(e) => {
+          if (dial.chooseOnly) return;
+          if (e.key === 'ArrowRight') commit(Math.min(1, value + 0.05));
+          else if (e.key === 'ArrowLeft') commit(Math.max(0, value - 0.05));
+          else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            dispatch({ type: 'edit', mutate: (r) => toggleStage(r, id) });
+          } else return;
+          e.preventDefault();
+        }}
+      >
+        <div className="stagecard__head">
+          <span className="mono stagecard__idx">{String(index + 1).padStart(2, '0')}</span>
+          <span className="spacer" />
+          <span className="stagecard__tools">
+            <button
+              className="icb icb--xs"
+              type="button"
+              title="Earlier"
+              disabled={first}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => dispatch({ type: 'stack:move', id, dir: -1 })}
+            >
+              <Arrow dir="left" />
+            </button>
+            <button
+              className="icb icb--xs"
+              type="button"
+              title="Later"
+              disabled={last}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => dispatch({ type: 'stack:move', id, dir: 1 })}
+            >
+              <Arrow dir="right" />
+            </button>
+            <button
+              className="icb icb--xs"
+              type="button"
+              title="Take it off the strip"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => dispatch({ type: 'stack:remove', id })}
+            >
+              <Cross />
+            </button>
+          </span>
+        </div>
+
+        <p className="stagecard__name">{STAGE_LABEL[id]}</p>
+        <p className="stagecard__value mono">
+          {live ? stageSummary(id, recipe) : dial.chooseOnly ? stageSummary(id, recipe) : 'OFF'}
+        </p>
+
+        {!dial.chooseOnly ? (
+          <span className="stagecard__bar" aria-hidden="true">
+            <i style={{ width: `${Math.round(value * 100)}%` }} />
+          </span>
+        ) : null}
+
+        {!live && !dial.chooseOnly ? (
+          <span className="stagecard__hint">tap to cook · drag to set</span>
+        ) : null}
+      </div>
+    </li>
   );
 }
 
@@ -385,10 +500,3 @@ function Arrow({ dir }: { dir: 'left' | 'right' }) {
   );
 }
 
-function Dot() {
-  return (
-    <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
-      <circle cx="4" cy="4" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.1" />
-    </svg>
-  );
-}

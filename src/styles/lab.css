@@ -936,3 +936,79 @@
 }
 .look:hover .look__name { color: var(--t-100); }
 .look[aria-pressed='true'] .look__name { color: var(--a-amber); }
+
+/* ============================================================
+   RECIPE CARDS ARE INSTRUMENTS
+   ============================================================ */
+
+.stagecard {
+  position: relative;
+  flex: none;
+  width: 166px;
+  border: 1px solid var(--line-soft);
+  background: var(--k-100);
+  transition: border-color var(--d1) var(--e), background var(--d1) var(--e);
+}
+.stagecard__grip {
+  display: block;
+  padding: var(--s3);
+  cursor: ew-resize;
+  touch-action: none;
+  height: 100%;
+}
+.stagecard[data-choose='true'] .stagecard__grip { cursor: default; }
+.stagecard[data-on='false'] { opacity: 0.4; }
+.stagecard:hover { border-color: var(--line); background: var(--k-200); }
+.stagecard[data-live='true'] { border-color: var(--line); }
+.stagecard[data-live='true']::before {
+  content: '';
+  position: absolute;
+  left: -1px; top: -1px; bottom: -1px;
+  width: 2px;
+  background: var(--acid);
+}
+.stagecard[data-dragging='true'] { background: var(--k-300); border-color: var(--acid); }
+
+.stagecard__head { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
+.stagecard__idx { font-size: var(--t-nano); color: var(--paper-low); }
+.stagecard__tools { display: flex; gap: 1px; opacity: 0; transition: opacity var(--d1) var(--e); }
+.stagecard:hover .stagecard__tools,
+.stagecard:focus-within .stagecard__tools { opacity: 1; }
+
+.stagecard__name {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-low);
+}
+.stagecard[data-live='true'] .stagecard__name { color: var(--paper-dim); }
+.stagecard__value {
+  margin-top: 2px;
+  font-size: var(--t-body);
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stagecard[data-live='false'] .stagecard__value { color: var(--paper-low); }
+
+.stagecard__bar {
+  display: block;
+  margin-top: var(--s3);
+  height: 3px;
+  background: var(--k-300);
+}
+.stagecard__bar i { display: block; height: 100%; background: var(--acid); transition: width var(--d1) var(--e); }
+.stagecard[data-live='false'] .stagecard__bar i { background: var(--k-400); }
+
+.stagecard__hint {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--f-mono);
+  font-size: var(--t-nano);
+  color: var(--paper-low);
+  opacity: 0;
+  transition: opacity var(--d1) var(--e);
+}
+.stagecard:hover .stagecard__hint { opacity: 1; }
