@@ -104,10 +104,10 @@ export function ImportSpecimen() {
           type="button"
           onClick={() => dispatch({ type: 'screen', screen: specimen ? 'lab' : 'enter' })}
         >
-          ← {specimen ? 'Back to the lab' : 'Back'}
+          ← {specimen ? 'Back' : 'Back'}
         </button>
         <span className="spacer" />
-        <span className="lbl lbl--wide">Import specimen</span>
+        <span className="lbl lbl--wide">Put something in</span>
       </header>
 
       <div className="import__body">
@@ -137,12 +137,10 @@ export function ImportSpecimen() {
             <span className="dropzone__corner dropzone__corner--bl" />
             <span className="dropzone__corner dropzone__corner--br" />
 
-            <p className="lbl lbl--wide dropzone__label">Place a photograph here</p>
+            <p className="dropzone__label">Drop it<br />here</p>
             <p className="serif dropzone__lead">
-              Drop a photograph or a clip on the table, or choose one. It is read
-              on this machine and handed straight to the engine — nothing is
-              uploaded. A moving specimen runs through the same process, frame
-              by frame.
+              A picture or a clip. It is read on this machine and handed straight
+              to the engine — nothing leaves. Clips go through frame by frame.
             </p>
             <button className="btn btn--lg btn--primary" type="button" onClick={() => input.current?.click()}>
               Choose a file
@@ -163,23 +161,23 @@ export function ImportSpecimen() {
         </AnalogSurface>
 
         <aside className="import__house">
-          <h2 className="lbl lbl--wide">On the bench</h2>
+          <h2 className="lbl lbl--wide">Nothing to hand</h2>
           <p className="import__note">
-            Two reference images the lab keeps to hand. Both are drawn in code —
-            neither is a photograph, and neither pretends to be.
+            Two images the lab drew itself. Neither is a photograph and neither
+            pretends to be — they are here so the bench is never empty.
           </p>
           <button className="housecard" type="button" onClick={() => house('window')}>
             <span className="housecard__thumb housecard__thumb--window" aria-hidden="true" />
             <span>
-              <span className="housecard__name">Window Study</span>
-              <span className="mono mono--dim">Light, glass and a bench. Good for halation.</span>
+              <span className="housecard__name">Window</span>
+              <span className="mono mono--dim">Glass and hard light. Good for halation.</span>
             </span>
           </button>
           <button className="housecard" type="button" onClick={() => house('target')}>
             <span className="housecard__thumb housecard__thumb--target" aria-hidden="true" />
             <span>
-              <span className="housecard__name">Bench Test Target</span>
-              <span className="mono mono--dim">Step wedge and primaries. Good for density and grain.</span>
+              <span className="housecard__name">Wedge</span>
+              <span className="mono mono--dim">Steps and primaries. Good for grain and density.</span>
             </span>
           </button>
         </aside>

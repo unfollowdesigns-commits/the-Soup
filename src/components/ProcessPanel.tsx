@@ -117,7 +117,7 @@ export function ProcessPanel({
   return (
     <aside className="process" aria-label="Processing controls">
       <div className="sec-head">
-        <span className="lbl lbl--wide">Process</span>
+        <span className="lbl lbl--wide">Cook</span>
         <span className="sec-head__line" />
         <span className="mono mono--dim">{getMaterial(recipe.material).archiveNo}</span>
       </div>

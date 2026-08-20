@@ -14,11 +14,11 @@
 .instr__label {
   flex: 1;
   min-width: 0;
-  font-size: var(--fs-label);
-  font-weight: 500;
-  letter-spacing: var(--tr-label);
-  text-transform: uppercase;
-  color: var(--t-400);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--paper-low);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -65,8 +65,7 @@
   position: absolute;
   top: 13px;
   height: 1px;
-  background: var(--a-amber);
-  opacity: 0.85;
+  background: var(--acid);
 }
 
 .instr__handle {
@@ -82,16 +81,16 @@
   height: 15px;
   margin-left: -1px;
   border-radius: 1px;
-  background: linear-gradient(180deg, #ddd6c8, #8a8377);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  background: var(--paper);
+  box-shadow: none;
   transition: transform var(--d-fast) var(--e-out), background var(--d-fast) var(--e-out);
 }
-.instr__track:hover .instr__handle-line { background: linear-gradient(180deg, #f4efe4, #a09889); }
+.instr__track:hover .instr__handle-line { background: var(--paper); }
 .instr[data-dragging='true'] .instr__handle-line {
-  background: linear-gradient(180deg, #f0c274, var(--a-amber));
-  transform: scaleY(1.15);
+  background: var(--acid);
+  transform: scaleY(1.2);
 }
-.instr[data-dragging='true'] .instr__value { color: var(--a-amber); }
+.instr[data-dragging='true'] .instr__value { color: var(--acid); }
 
 .instr__note {
   margin-top: 6px;
@@ -188,13 +187,12 @@
   padding: 2px 0;
 }
 .trait__label {
-  width: 74px;
+  width: 70px;
   flex: none;
   font-family: var(--f-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t-500);
+  font-size: var(--t-nano);
+  letter-spacing: 0.04em;
+  color: var(--paper-low);
 }
 .trait__bar { display: flex; gap: 2px; flex: 1; }
 .trait__bar i {

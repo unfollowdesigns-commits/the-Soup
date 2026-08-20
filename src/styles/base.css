@@ -10,11 +10,11 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--s-050);
-  color: var(--t-200);
-  font-family: var(--f-sans);
-  font-size: var(--fs-body);
-  line-height: 1.5;
+  background: var(--k-000);
+  color: var(--paper-dim);
+  font-family: var(--f-display);
+  font-size: var(--t-body);
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -63,36 +63,55 @@ img { display: block; max-width: 100%; }
    TYPE PRIMITIVES
    ============================================================ */
 
-/* stencilled section header — the label on the archive drawer */
+/* A label is a label. It does not need tracking, uppercase and a
+   colour to prove it is technical. Caps are reserved for the few
+   places that name a bench or a stage. */
 .lbl {
-  font-family: var(--f-sans);
-  font-size: var(--fs-label);
-  font-weight: 500;
-  letter-spacing: var(--tr-label);
-  text-transform: uppercase;
-  color: var(--t-400);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: var(--tr-flat);
+  color: var(--paper-low);
 }
-.lbl--wide { letter-spacing: var(--tr-wide); }
-.lbl--lit { color: var(--t-300); }
-.lbl--amber { color: var(--a-amber); }
+.lbl--wide {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--paper-dim);
+}
+.lbl--lit { color: var(--paper); }
+.lbl--amber { color: var(--acid); }
 
-/* technical readout — always monospace, always a real number */
+/* numbers, always */
 .mono {
   font-family: var(--f-mono);
-  font-size: var(--fs-meta);
-  letter-spacing: var(--tr-mono);
+  font-size: var(--t-tiny);
+  letter-spacing: var(--tr-data);
   font-variant-numeric: tabular-nums;
-  color: var(--t-300);
+  color: var(--paper-dim);
 }
-.mono--val { color: var(--t-100); }
-.mono--dim { color: var(--t-500); }
+.mono--val { color: var(--paper); }
+.mono--dim { color: var(--paper-low); }
 
-/* editorial / historical voice, used sparingly */
+/* the one place display type is allowed to shout */
+.shout {
+  font-family: var(--f-display);
+  font-weight: 900;
+  font-size: var(--t-shout);
+  line-height: 0.82;
+  letter-spacing: var(--tr-tight);
+  text-transform: uppercase;
+  color: var(--paper);
+}
+
+/* prose. Lower case, no italics, no flourish. */
 .serif {
-  font-family: var(--f-serif);
-  font-size: var(--fs-body-l);
-  line-height: 1.62;
-  color: var(--t-200);
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: var(--t-mid);
+  line-height: 1.5;
+  letter-spacing: -0.012em;
+  color: var(--paper-dim);
 }
 
 /* ============================================================
@@ -122,27 +141,28 @@ img { display: block; max-width: 100%; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-2);
+  gap: var(--s2);
   height: 30px;
-  padding: 0 var(--sp-4);
-  border: 1px solid var(--line-200);
-  border-radius: var(--r-2);
-  background: linear-gradient(180deg, var(--s-300), var(--s-200));
-  box-shadow: var(--sh-inset);
-  color: var(--t-200);
-  font-size: var(--fs-label);
-  font-weight: 500;
-  letter-spacing: var(--tr-label);
+  padding: 0 var(--s4);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--paper-dim);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  transition: background var(--d-fast) var(--e-out),
-    border-color var(--d-fast) var(--e-out), color var(--d-fast) var(--e-out);
+  transition: background var(--d1) var(--e), border-color var(--d1) var(--e),
+    color var(--d1) var(--e);
 }
-.btn:hover:not(:disabled) { border-color: var(--line-300); color: var(--t-000); }
-.btn:active:not(:disabled) {
-  background: var(--s-150);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+.btn:hover:not(:disabled) {
+  border-color: var(--paper);
+  color: var(--paper);
+  background: rgba(237, 234, 227, 0.06);
 }
+.btn:active:not(:disabled) { background: rgba(237, 234, 227, 0.12); }
 .btn:disabled { opacity: 0.38; }
 
 .btn--quiet {
@@ -153,16 +173,16 @@ img { display: block; max-width: 100%; }
 .btn--quiet:hover:not(:disabled) { color: var(--t-100); border-color: var(--line-100); }
 
 .btn--primary {
-  background: linear-gradient(180deg, #e0a445, var(--a-amber-dim));
-  border-color: rgba(0, 0, 0, 0.5);
-  color: #17130b;
-  font-weight: 600;
+  background: var(--acid);
+  border-color: var(--acid);
+  color: var(--acid-ink);
+  font-weight: 800;
 }
-.btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, #eeb055, #9c722e); color: #17130b; }
-.btn--primary:active:not(:disabled) { background: var(--a-amber-dim); box-shadow: inset 0 1px 4px rgba(0,0,0,0.45); }
+.btn--primary:hover:not(:disabled) { background: var(--paper); border-color: var(--paper); color: var(--k-000); }
+.btn--primary:active:not(:disabled) { background: #b0d825; border-color: #b0d825; color: var(--acid-ink); }
 
-.btn--danger { color: #c8705f; }
-.btn--danger:hover:not(:disabled) { color: #e08b78; border-color: rgba(154, 53, 39, 0.55); }
+.btn--danger { color: var(--ember); }
+.btn--danger:hover:not(:disabled) { color: var(--k-000); background: var(--ember); border-color: var(--ember); }
 
 .btn--lg { height: 38px; padding: 0 var(--sp-6); font-size: var(--fs-meta); }
 .btn--sm { height: 24px; padding: 0 var(--sp-3); font-size: var(--fs-micro); }
@@ -247,3 +267,32 @@ img { display: block; max-width: 100%; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   WORDMARK
+   ============================================================ */
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  line-height: 1;
+  color: var(--paper);
+}
+.wordmark__mark { flex: none; color: var(--acid); display: block; }
+.wordmark__type {
+  font-family: var(--f-display);
+  font-weight: 900;
+  font-size: 1em;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+}
+
+/* a rule that means something: the width of the thing it separates */
+.hr {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+.hr--hard { background: var(--paper); height: 2px; }
+.hr--acid { background: var(--acid); height: 2px; }

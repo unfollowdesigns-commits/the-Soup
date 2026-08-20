@@ -3,6 +3,7 @@ import type { RenderStats } from '../engine/renderer';
 import { getMaterial } from '../lab/materials';
 import { applyMaterial } from '../lab/recipe';
 import { timeOf, useDispatch, useLab } from '../lab/store';
+import { Wordmark } from '../brand/Mark';
 import { Deck, type DeckTab } from './Deck';
 import { DevelopExport } from './DevelopExport';
 import { MaterialArchive } from './MaterialArchive';
@@ -47,12 +48,9 @@ export function LabShell() {
   return (
     <div className="lab">
       <header className="lab__bar">
-        <div className="lab__ident">
-          <span className="lab__mark" aria-hidden="true" />
-          <h1 className="lab__title">
-            Photographic <em>Material</em> Lab
-          </h1>
-        </div>
+        <h1 className="lab__ident">
+          <Wordmark size={17} />
+        </h1>
 
         <span className="spacer" />
 
@@ -71,7 +69,7 @@ export function LabShell() {
           type="button"
           onClick={() => dispatch({ type: 'screen', screen: 'import' })}
         >
-          Change specimen
+          Swap
         </button>
         <button
           className="btn"
@@ -133,7 +131,7 @@ export function LabShell() {
               aria-pressed={rail === 'process'}
               onClick={() => setRail('process')}
             >
-              <span className="lbl">Process</span>
+              <span className="lbl lbl--wide">Cook</span>
             </button>
             <button
               type="button"
@@ -141,7 +139,7 @@ export function LabShell() {
               aria-pressed={rail === 'analysis'}
               onClick={() => setRail('analysis')}
             >
-              <span className="lbl">Analysis</span>
+              <span className="lbl lbl--wide">Read</span>
             </button>
           </div>
           {rail === 'process' ? (

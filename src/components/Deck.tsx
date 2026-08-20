@@ -36,10 +36,10 @@ export function Deck({
 }) {
   const { log, archive } = useLab();
   const tabs: { id: DeckTab; label: string; count?: number }[] = [
-    { id: 'stack', label: 'Process Stack' },
-    { id: 'random', label: 'Experiment' },
+    { id: 'stack', label: 'Recipe' },
+    { id: 'random', label: 'Roll the dice' },
     { id: 'log', label: 'Log', count: log.length },
-    { id: 'recipes', label: 'Recipes', count: archive.length },
+    { id: 'recipes', label: 'Book', count: archive.length },
   ];
 
   return (
@@ -195,7 +195,7 @@ function RandomExperiment() {
     <div className="random">
       <div className="random__head">
         <p className="serif random__lead">
-          The lab proposes a combination. Run it, push it further, or file it.
+          The lab picks a combination. Run it, push it further, or keep it.
         </p>
         <div className="random__actions">
           <button className="btn btn--primary" type="button" onClick={() => run(newSeed())}>
@@ -302,10 +302,10 @@ export function RecipeArchive() {
   return (
     <div className="recipes">
       <div className="recipes__tools">
-        <span className="lbl">File the current process as</span>
+        <span className="lbl">Keep this cook as</span>
         <span className="mono mono--val recipes__proposed">{proposed}</span>
         <button className="btn btn--sm btn--primary" type="button" onClick={() => dispatch({ type: 'archive:add' })}>
-          Archive recipe
+          Keep it
         </button>
       </div>
 
@@ -326,8 +326,8 @@ export function RecipeArchive() {
         </ul>
       ) : (
         <p className="deck__none mono mono--dim">
-          The archive is empty. A recipe stores every value and every seed, so it
-          develops the same way twice.
+          Nothing kept yet. A recipe stores every value and every seed, so it
+          cooks the same way twice.
         </p>
       )}
     </div>

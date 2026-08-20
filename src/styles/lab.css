@@ -25,11 +25,10 @@
   padding: 0 var(--sp-5);
   min-width: 0;
   border-bottom: 1px solid var(--line-100);
-  background: linear-gradient(180deg, var(--s-150), var(--s-100));
-  box-shadow: var(--sh-inset), 0 1px 0 rgba(0, 0, 0, 0.5);
+  background: var(--k-000);
 }
 
-.lab__ident { display: flex; align-items: center; gap: var(--sp-3); }
+.lab__ident { display: flex; align-items: center; margin: 0; }
 .lab__mark {
   width: 15px;
   height: 15px;

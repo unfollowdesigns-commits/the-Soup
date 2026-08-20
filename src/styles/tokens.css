@@ -1,127 +1,178 @@
 /* ============================================================
-   PHOTOGRAPHIC MATERIAL LAB — DESIGN TOKENS
-   A converted New York loft, translated into material, not theme.
+   SOUP — TOKENS
+   Black, paper, and one acid. Nothing sits in the middle.
    ============================================================ */
 
 :root {
-  /* ---- SURFACE / STRUCTURE -------------------------------- */
-  /* warm blacks and graphites: matte painted steel, concrete, walnut */
-  --s-void: #0b0a09;      /* the room beyond the worktable */
-  --s-000: #100f0d;       /* deepest panel */
-  --s-050: #151412;       /* app ground */
-  --s-100: #1a1815;       /* panel */
-  --s-150: #1f1d19;       /* panel raised */
-  --s-200: #24211d;       /* control bed */
-  --s-300: #2c2924;       /* graphite */
-  --s-400: #363229;       /* worn edge */
-  --s-500: #45403a;       /* concrete */
-  --s-600: #5c554c;       /* brushed steel shadow */
+  /* ---- GROUND ---------------------------------------------
+     Four steps only. Anything that needs a fifth is decoration. */
+  --k-000: #060606;   /* the room */
+  --k-100: #0d0d0d;   /* the surface things sit on */
+  --k-200: #161616;   /* raised */
+  --k-300: #232323;   /* pressed / control bed */
+  --k-400: #3a3a3a;   /* the only mid-grey allowed */
 
-  --walnut: #35271e;
-  --walnut-lit: #4a3527;
-  --steel: #74787c;
+  --paper: #edeae3;   /* print */
+  --paper-dim: #a8a49b;
+  --paper-low: #6f6c65;
 
-  /* ---- INK / TYPE ----------------------------------------- */
-  --t-000: #f4efe4;       /* off-white, printed highlight */
-  --t-100: #ddd6c8;       /* warm photographic paper */
-  --t-200: #b3ac9e;       /* body */
-  --t-300: #8a8377;       /* secondary */
-  --t-400: #676159;       /* tertiary / labels */
-  --t-500: #4c4740;       /* disabled, hairline type */
+  /* ---- ACID -----------------------------------------------
+     Used hard and used rarely. State, never decoration. */
+  --acid: #c6f031;
+  --acid-ink: #0a0d02;   /* type that sits on acid */
+  --ember: #ff4d19;      /* damage, burn, destructive */
+  --ice: #7fd4ff;        /* trace, analysis, cold */
 
-  /* ---- ACCENT (state, never decoration) -------------------- */
-  --a-amber: #d99a3f;     /* active / selected / safelight */
-  --a-amber-dim: #8d6529;
-  --a-red: #9a3527;       /* damage, destructive, burn */
-  --a-orange: #c26a3a;    /* halation, warmth */
-  --a-chem: #7b8a4e;      /* chemistry, running process */
-  --a-blue: #5f7789;      /* depth, cool, analysis */
+  /* ---- LINES ----------------------------------------------- */
+  --line: rgba(237, 234, 227, 0.14);
+  --line-soft: rgba(237, 234, 227, 0.07);
+  --line-hard: rgba(237, 234, 227, 0.34);
 
-  /* ---- HAIRLINES ------------------------------------------ */
-  --line-000: rgba(244, 239, 228, 0.045);
-  --line-100: rgba(244, 239, 228, 0.075);
-  --line-200: rgba(244, 239, 228, 0.12);
-  --line-300: rgba(244, 239, 228, 0.2);
-  --line-amber: rgba(217, 154, 63, 0.42);
+  /* ---- TYPE -----------------------------------------------
+     Two faces. A heavy grotesk that does the shouting, and a
+     mono that does the counting. No third face. */
+  --f-display: 'Archivo', 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* ---- TYPE ----------------------------------------------- */
-  --f-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
-    'Segoe UI', Arial, sans-serif;
-  --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono',
-    Menlo, Consolas, monospace;
-  --f-serif: 'Spectral', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  /* a scale with actual range: 10px to 120px, not 9 to 18 */
+  --t-nano: 9px;
+  --t-micro: 10px;
+  --t-tiny: 11px;
+  --t-body: 13px;
+  --t-mid: 16px;
+  --t-large: 22px;
+  --t-huge: 38px;
+  --t-shout: clamp(58px, 11.5vw, 184px);
 
-  /* editorial scale — small, wide-tracked labels; generous readable body */
-  --fs-micro: 9.5px;
-  --fs-label: 10.5px;
-  --fs-meta: 11px;
-  --fs-body-s: 12px;
-  --fs-body: 13px;
-  --fs-body-l: 15px;
-  --fs-title: 18px;
-  --fs-display: 26px;
-  --fs-hero: clamp(38px, 6.5vw, 76px);
+  /* tracking belongs to display type, not to every label */
+  --tr-tight: -0.035em;
+  --tr-flat: 0;
+  --tr-data: 0.02em;
 
-  --tr-label: 0.16em;     /* archival label tracking */
-  --tr-wide: 0.28em;      /* stencilled section headers */
-  --tr-mono: 0.04em;
+  /* ---- SPACE ----------------------------------------------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 72px;
+  --s9: 120px;
 
-  /* ---- SPACE (4px base) ----------------------------------- */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-8: 32px;
-  --sp-10: 40px;
-  --sp-12: 48px;
-  --sp-16: 64px;
+  /* ---- FORM ------------------------------------------------
+     Nothing is rounded. This is printed matter. */
+  --r: 0px;
 
-  /* ---- FORM ----------------------------------------------- */
-  --r-0: 0px;
-  --r-1: 1px;
-  --r-2: 2px;
-  --r-3: 3px;             /* nothing rounder than a film-edge notch */
+  /* ---- MOTION ---------------------------------------------- */
+  --e: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --d1: 90ms;
+  --d2: 180ms;
+  --d3: 340ms;
 
-  /* ---- ELEVATION (light from the loft window, top-left) ---- */
-  --sh-inset: inset 0 1px 0 rgba(244, 239, 228, 0.035);
-  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --sh-2: 0 8px 24px -8px rgba(0, 0, 0, 0.7);
-  --sh-3: 0 24px 60px -16px rgba(0, 0, 0, 0.8);
-  --sh-drawer: 24px 0 60px -20px rgba(0, 0, 0, 0.75);
-
-  /* ---- MOTION (subtle; nothing bounces in a darkroom) ------ */
-  --e-out: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --e-in-out: cubic-bezier(0.5, 0, 0.2, 1);
-  --d-fast: 110ms;
-  --d-base: 190ms;
-  --d-slow: 380ms;
-
-  /* ---- LAYOUT --------------------------------------------- */
-  --rail-left: 300px;
-  --rail-right: 348px;
-  --bar-h: 52px;
-  --deck-h: 216px;
-  --deck-h-collapsed: 40px;
-
-  /* the tooth of a coated sheet, laid under the working surfaces.
-     Real material — see docs/ANALOG_SYSTEM.md */
-  --tooth-img: url('/analog/paper/paper-fibre-1.png');
+  /* ---- STRUCTURE ------------------------------------------- */
+  --bar: 46px;
+  --rail: 300px;
+  --strip: 128px;
 
   color-scheme: dark;
 }
 
-@media (min-width: 1600px) {
-  :root {
-    --rail-left: 328px;
-    --rail-right: 380px;
-  }
+@media (min-width: 1700px) {
+  :root { --rail: 340px; --strip: 148px; }
 }
-@media (min-width: 1920px) {
-  :root {
-    --rail-left: 352px;
-    --rail-right: 404px;
-    --deck-h: 240px;
-  }
+
+/* ============================================================
+   LEGACY ALIASES
+   The components written before the identity landed still name
+   the old tokens. They point at the new ones so nothing renders
+   grey-on-grey while the shell is being rebuilt bench by bench.
+   ============================================================ */
+:root {
+  --s-void: var(--k-000);
+  --s-000: var(--k-000);
+  --s-050: var(--k-100);
+  --s-100: var(--k-100);
+  --s-150: var(--k-200);
+  --s-200: var(--k-200);
+  --s-300: var(--k-300);
+  --s-400: var(--k-400);
+  --s-500: var(--k-400);
+  --s-600: var(--paper-low);
+  --walnut: #1a1a1a;
+  --walnut-lit: #262626;
+  --steel: var(--paper-low);
+
+  --t-000: var(--paper);
+  --t-100: var(--paper);
+  --t-200: var(--paper-dim);
+  --t-300: var(--paper-dim);
+  --t-400: var(--paper-low);
+  --t-500: #4b4944;
+
+  --a-amber: var(--acid);
+  --a-amber-dim: #8fae1e;
+  --a-red: var(--ember);
+  --a-orange: var(--ember);
+  --a-chem: var(--acid);
+  --a-blue: var(--ice);
+
+  --line-000: var(--line-soft);
+  --line-100: var(--line);
+  --line-200: var(--line);
+  --line-300: var(--line-hard);
+  --line-amber: var(--acid);
+
+  --f-sans: var(--f-display);
+  --f-serif: var(--f-display);
+
+  --fs-micro: var(--t-nano);
+  --fs-label: var(--t-micro);
+  --fs-meta: var(--t-tiny);
+  --fs-body-s: 12px;
+  --fs-body: var(--t-body);
+  --fs-body-l: var(--t-mid);
+  --fs-title: var(--t-large);
+  --fs-display: var(--t-huge);
+  --fs-hero: var(--t-shout);
+
+  --tr-label: 0.06em;
+  --tr-wide: 0.14em;
+  --tr-mono: var(--tr-data);
+
+  --sp-1: var(--s1);
+  --sp-2: var(--s2);
+  --sp-3: var(--s3);
+  --sp-4: var(--s4);
+  --sp-5: var(--s4);
+  --sp-6: var(--s5);
+  --sp-8: var(--s6);
+  --sp-10: var(--s7);
+  --sp-12: var(--s7);
+  --sp-16: var(--s8);
+
+  --r-0: 0px;
+  --r-1: 0px;
+  --r-2: 0px;
+  --r-3: 0px;
+
+  --sh-inset: none;
+  --sh-1: none;
+  --sh-2: 0 16px 40px -18px rgba(0, 0, 0, 0.9);
+  --sh-3: 0 40px 90px -30px rgba(0, 0, 0, 0.95);
+  --sh-drawer: 30px 0 70px -30px rgba(0, 0, 0, 0.9);
+
+  --e-out: var(--e);
+  --e-in-out: var(--e);
+  --d-fast: var(--d1);
+  --d-base: var(--d2);
+  --d-slow: var(--d3);
+
+  --rail-left: var(--rail);
+  --rail-right: var(--rail);
+  --bar-h: var(--bar);
+  --deck-h: 200px;
+  --deck-h-collapsed: 38px;
+
+  --tooth-img: url('/analog/paper/paper-fibre-1.png');
 }

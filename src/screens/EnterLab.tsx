@@ -1,95 +1,81 @@
 import { useEffect, useState } from 'react';
+import { BRAND, COLOPHON } from '../brand/brand';
+import { Mark, Wordmark } from '../brand/Mark';
+import { LOOKS } from '../lab/looks';
 import { MATERIALS } from '../lab/materials';
 import { useDispatch } from '../lab/store';
 import { ContactStrip } from './ContactStrip';
 
 /* ============================================================
-   SCREEN 1 — ENTER THE LAB
-   Five seconds to establish that this is a place, not a tool.
+   THE WAY IN
+   A page, not a hero card. The name is the biggest thing on it,
+   the list of what the lab can ruin is the second biggest, and
+   the engine is already running underneath.
    ============================================================ */
 
 export function EnterLab() {
   const dispatch = useDispatch();
   const [lit, setLit] = useState(false);
-
   useEffect(() => {
-    const t = setTimeout(() => setLit(true), 60);
+    const t = setTimeout(() => setLit(true), 40);
     return () => clearTimeout(t);
   }, []);
 
-  const shelf = MATERIALS.slice(4, 16);
-
   return (
-    <div className="enter" data-lit={lit}>
-      <div className="enter__light" aria-hidden="true" />
-
-      <header className="enter__head">
-        <span className="enter__mark" aria-hidden="true" />
-        <span className="lbl lbl--wide">Est. in a converted loft</span>
+    <div className="way" data-lit={lit}>
+      <header className="way__top">
+        <Wordmark size={18} />
+        <span className="spacer" />
+        <span className="mono mono--dim">{MATERIALS.length} STOCKS</span>
+        <span className="mono mono--dim">{LOOKS.length} COOKS</span>
       </header>
 
-      <div className="enter__centre">
-        <div className="enter__plate">
-          <p className="lbl lbl--wide enter__eyebrow">Photographic</p>
-          <h1 className="enter__title">
-            Material<br />
-            <em>Lab</em>
+      <main className="way__body">
+        <div className="way__left">
+          <h1 className="way__name">
+            <span>SOUP</span>
           </h1>
-          <p className="serif enter__lead">
-            Bring in a photograph. Decide what it was made on, how it was
-            developed, what happened to the film afterwards — and how far you
-            want to take the experiment.
-          </p>
+          <p className="way__line">{BRAND.line}</p>
+          <hr className="hr hr--acid way__rule" />
+          <p className="way__blurb serif">{BRAND.blurb}</p>
 
-          <div className="enter__actions">
-            <button
-              className="btn btn--lg btn--primary"
-              type="button"
-              onClick={() => dispatch({ type: 'screen', screen: 'import' })}
-            >
-              Enter the lab
-            </button>
-          </div>
-
-          <dl className="enter__facts">
-            <div>
-              <dt className="lbl">Materials on file</dt>
-              <dd className="mono mono--val">{MATERIALS.length}</dd>
-            </div>
-            <div>
-              <dt className="lbl">Processing</dt>
-              <dd className="mono mono--val">WebGL2 · multi-pass</dd>
-            </div>
-            <div>
-              <dt className="lbl">Grain</dt>
-              <dd className="mono mono--val">procedural</dd>
-            </div>
-            <div>
-              <dt className="lbl">Recipes</dt>
-              <dd className="mono mono--val">reproducible</dd>
-            </div>
-          </dl>
+          <button
+            className="way__go"
+            type="button"
+            onClick={() => dispatch({ type: 'screen', screen: 'import' })}
+          >
+            <Mark size={18} />
+            <span>PUT SOMETHING IN</span>
+            <span className="way__go-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
 
-        <div className="enter__strip-holder">
+        <div className="way__right">
           <ContactStrip />
         </div>
-      </div>
+      </main>
 
-      <footer className="enter__shelf" aria-hidden="true">
-        <div className="enter__strip">
-          {shelf.map((m) => (
-            <span className="enter__can" key={m.id}>
-              <span className="enter__can-swatch">
-                {m.swatch.map((c, i) => (
-                  <i key={i} style={{ background: c }} />
-                ))}
-              </span>
-              <span className="enter__can-name mono">{m.name}</span>
-              <span className="enter__can-iso mono mono--dim">{m.isoLabel}</span>
-            </span>
+      <section className="way__ways" aria-label="What it does">
+        <ol>
+          {[
+            ['01', 'PICK A STOCK', 'Tri-X, Portra, Kodachrome, wet plate, expired junk.'],
+            ['02', 'DEVELOP IT WRONG', 'Push, pull, cross process, bleach bypass, stand.'],
+            ['03', 'RUIN IT', 'Chemistry, heat, burns, dirt, light that got in.'],
+            ['04', 'KEEP THE RECIPE', 'Every seed stored. It cooks the same way twice.'],
+          ].map(([n, t, d]) => (
+            <li key={n}>
+              <span className="mono way__n">{n}</span>
+              <span className="way__t">{t}</span>
+              <span className="way__d">{d}</span>
+            </li>
           ))}
-        </div>
+        </ol>
+      </section>
+
+      <footer className="way__foot">
+        <span className="mono mono--dim">{COLOPHON}</span>
+        <span className="spacer" />
+        <span className="mono mono--dim">NOTHING IS UPLOADED</span>
       </footer>
     </div>
   );

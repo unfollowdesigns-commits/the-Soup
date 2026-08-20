@@ -78,7 +78,7 @@ export function MaterialArchive({
   return (
     <aside className="archive" aria-label="Material archive">
       <div className="sec-head">
-        <span className="lbl lbl--wide">Archive</span>
+        <span className="lbl lbl--wide">Stock</span>
         <span className="sec-head__line" />
         <span className="mono mono--dim">{results.length}/{MATERIALS.length}</span>
       </div>
@@ -88,7 +88,7 @@ export function MaterialArchive({
           className="archive__input"
           type="search"
           value={f.q}
-          placeholder="Search the archive"
+          placeholder="Search stock"
           onChange={(e) => setF((p) => ({ ...p, q: e.target.value }))}
           aria-label="Search materials"
         />
@@ -176,7 +176,7 @@ export function MaterialArchive({
           ))}
           {!results.length ? (
             <p className="archive__none mono mono--dim">
-              Nothing filed under those terms.
+              Nothing on the shelf under those terms.
             </p>
           ) : null}
         </div>
