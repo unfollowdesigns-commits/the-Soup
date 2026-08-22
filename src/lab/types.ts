@@ -232,6 +232,8 @@ export interface PhotoRecipe {
     jitter: number;       /* sub-frame instability of the overlay */
     glyphs: string;       /* the ramp used by the typographic mode */
     cell: number;         /* character cell size for the typographic mode */
+    /** energy locks onto edges; blob follows what is moving */
+    track: 'energy' | 'blob';
   };
 
   /** contact sheet: the frame repeated as a strip or grid */

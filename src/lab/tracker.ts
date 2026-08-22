@@ -28,6 +28,11 @@ export interface TraceBox {
   vy: number;
 }
 
+/** how regions are found. Energy locks onto edges — which on a static
+ *  frame means the window, not the person walking past it. Blob segments
+ *  what is actually moving and follows it. */
+export type TrackMode = 'energy' | 'blob';
+
 export interface TraceResult {
   boxes: TraceBox[];
   /** wall-clock cost of the analysis pass */
@@ -36,6 +41,9 @@ export interface TraceResult {
   gridH: number;
   /** true once a second frame has been seen */
   motionAvailable: boolean;
+  mode: TrackMode;
+  /** share of the frame the mover occupies, 0..1 */
+  coverage: number;
 }
 
 const GRID = 48;
@@ -46,6 +54,8 @@ export class Tracker {
   private w = GRID;
   private h = GRID;
   private prev: Float32Array | null = null;
+  /** a slowly-updated model of what is standing still */
+  private bg: Float32Array | null = null;
   private tracks: TraceBox[] = [];
   private nextId = 1;
   private seenFrames = 0;
@@ -59,6 +69,7 @@ export class Tracker {
 
   reset() {
     this.prev = null;
+    this.bg = null;
     this.tracks = [];
     this.nextId = 1;
     this.seenFrames = 0;
@@ -68,7 +79,7 @@ export class Tracker {
     source: CanvasImageSource,
     srcW: number,
     srcH: number,
-    opts: { count: number; sensitivity: number; motionWeight: number },
+    opts: { count: number; sensitivity: number; motionWeight: number; mode?: TrackMode },
   ): TraceResult {
     const t0 = performance.now();
     const aspect = srcW / Math.max(srcH, 1);
@@ -105,6 +116,49 @@ export class Tracker {
     }
     this.prev = lum;
     this.seenFrames++;
+
+    /* ---- the background model -------------------------------
+       A running average of what has been sitting still. Anything
+       far enough from it is a mover. The rate is low so a subject
+       that pauses does not dissolve into the background within a
+       second, and high enough that a camera which is nudged
+       recovers instead of flagging the whole frame forever. */
+    if (!this.bg) this.bg = Float32Array.from(lum);
+    else {
+      const rate = 0.02;
+      for (let i = 0; i < lum.length; i++) {
+        this.bg[i] += (lum[i] - this.bg[i]) * rate;
+      }
+    }
+
+    /* A light that swings across the room raises every pixel at once,
+       and a raw difference calls that motion. Taking each field's own
+       mean out first leaves only what moved relative to the scene, so
+       the boxes land on the figure instead of on the window. */
+    let mCur = 0;
+    let mBg = 0;
+    for (let i = 0; i < lum.length; i++) {
+      mCur += lum[i];
+      mBg += this.bg[i];
+    }
+    mCur /= lum.length;
+    mBg /= lum.length;
+    const lift = mCur - mBg;
+
+    const mode: TrackMode = opts.mode ?? 'energy';
+    if (mode === 'blob' && motionAvailable) {
+      const blobs = this.blobs(lum, this.bg, energy, opts, lift);
+      this.tracks = this.associate(blobs.boxes);
+      return {
+        boxes: this.tracks,
+        ms: performance.now() - t0,
+        gridW: this.w,
+        gridH: this.h,
+        motionAvailable,
+        mode,
+        coverage: blobs.coverage,
+      };
+    }
 
     // score, then take non-overlapping peaks
     const score = new Float32Array(this.w * this.h);
@@ -176,7 +230,100 @@ export class Tracker {
       gridW: this.w,
       gridH: this.h,
       motionAvailable,
+      mode,
+      coverage: 0,
     };
+  }
+
+  /* ------------------------------------------------------------
+     BLOBS
+     Foreground mask against the background model, then connected
+     components by flood fill. One box per thing that is moving,
+     which is what a box on a person actually is.
+     ------------------------------------------------------------ */
+  private blobs(
+    lum: Float32Array,
+    bg: Float32Array,
+    energy: Float32Array,
+    opts: { count: number; sensitivity: number },
+    lift = 0,
+  ): { boxes: TraceBox[]; coverage: number } {
+    const W = this.w;
+    const H = this.h;
+    const n = W * H;
+    const thresh = 0.035 + (1 - opts.sensitivity) * 0.13;
+
+    const fg = new Uint8Array(n);
+    let on = 0;
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(lum[i] - bg[i] - lift) > thresh) {
+        fg[i] = 1;
+        on++;
+      }
+    }
+
+    // close one-pixel holes so a body does not shatter into confetti
+    const closed = new Uint8Array(n);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        let c = 0;
+        for (let j = -1; j <= 1; j++) {
+          for (let k = -1; k <= 1; k++) c += fg[i + j * W + k];
+        }
+        closed[i] = c >= 3 ? 1 : 0;
+      }
+    }
+
+    // flood fill each component with an explicit stack
+    const seen = new Uint8Array(n);
+    const stack = new Int32Array(n);
+    const minArea = Math.max(4, Math.round(n * 0.0016));
+    const found: TraceBox[] = [];
+
+    for (let start = 0; start < n; start++) {
+      if (!closed[start] || seen[start]) continue;
+      let sp = 0;
+      stack[sp++] = start;
+      seen[start] = 1;
+      let x0 = W, x1 = 0, y0 = H, y1 = 0, area = 0, e = 0, m = 0;
+
+      while (sp > 0) {
+        const i = stack[--sp];
+        const x = i % W;
+        const y = (i - x) / W;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+        area++;
+        e += energy[i];
+        m += Math.abs(lum[i] - bg[i] - lift);
+
+        if (x > 0 && closed[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; stack[sp++] = i - 1; }
+        if (x < W - 1 && closed[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; stack[sp++] = i + 1; }
+        if (y > 0 && closed[i - W] && !seen[i - W]) { seen[i - W] = 1; stack[sp++] = i - W; }
+        if (y < H - 1 && closed[i + W] && !seen[i + W]) { seen[i + W] = 1; stack[sp++] = i + W; }
+      }
+
+      if (area < minArea) continue;
+      found.push({
+        id: 0,
+        x: x0 / W,
+        y: y0 / H,
+        w: (x1 - x0 + 1) / W,
+        h: (y1 - y0 + 1) / H,
+        energy: e / area,
+        motion: Math.min(1, (m / area) * 6),
+        age: 1,
+        vx: 0,
+        vy: 0,
+      });
+    }
+
+    // biggest movers first, then take as many as were asked for
+    found.sort((a, b) => b.w * b.h - a.w * a.h);
+    return { boxes: found.slice(0, Math.max(1, opts.count)), coverage: on / n };
   }
 
   /** nearest-centroid association, with a little smoothing so the boxes

@@ -79,6 +79,7 @@ export function TraceOverlay({
             count: traceCount(recipe),
             sensitivity: t.sensitivity,
             motionWeight: t.motion,
+            mode: t.track,
           });
         } catch {
           result = null;
@@ -108,6 +109,29 @@ export function TraceOverlay({
       g.restore();
 
       if (stamping) drawSheetMarks(g, q, specimen, ox, oy, dw, dh);
+
+      // what the tracker is actually doing, printed where it can be read
+      if (t.enabled && t.mode !== 'type' && result) {
+        g.save();
+        g.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+        g.textBaseline = 'top';
+        g.fillStyle = 'rgba(6,6,6,0.8)';
+        g.fillRect(8, 8, 186, 46);
+        g.fillStyle = result.mode === 'blob' ? '#c6f031' : '#a8a49b';
+        g.fillText(
+          `${result.mode.toUpperCase()}  ${result.boxes.length} tracked`,
+          14, 14,
+        );
+        g.fillStyle = '#a8a49b';
+        g.fillText(
+          result.motionAvailable
+            ? `moving ${(result.coverage * 100).toFixed(1)}%  ${result.ms.toFixed(1)}ms`
+            : 'first frame — no motion yet',
+          14, 28,
+        );
+        g.fillText(`${result.gridW}x${result.gridH} grid`, 14, 40);
+        g.restore();
+      }
     };
 
     const loop = () => {

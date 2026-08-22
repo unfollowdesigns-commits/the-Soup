@@ -719,6 +719,16 @@ function TraceModule({ mod }: { mod: ModProps }) {
         </button>
       </div>
 
+      <Segmented<'energy' | 'blob'>
+        label="Find"
+        value={t.track}
+        options={[
+          { id: 'blob', label: 'Movers', title: 'Segment what is moving against a background model and follow it.' },
+          { id: 'energy', label: 'Edges', title: 'Lock onto local contrast. Works on a still, but finds the window rather than the person.' },
+        ]}
+        onChange={(v) => set('track', v, 'Trace Find', v === 'blob' ? 'movers' : 'edges')}
+      />
+
       <Segmented<TraceMode>
         value={t.mode}
         options={TRACE_MODES.map((m) => ({ id: m.id, label: m.label, title: m.note }))}

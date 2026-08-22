@@ -102,6 +102,7 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
       jitter: 0.2,
       glyphs: ' .:-=+*#%@',
       cell: 0.62,
+      track: 'blob',
     },
     sequence: { enabled: false, rows: 3, cols: 4, drift: 0.3, stamp: true, gutter: 0.3 },
     blur: { amount: 0, angle: 0, mode: 'motion', taper: 0.3, cx: 0.5, cy: 0.5 },

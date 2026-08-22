@@ -1,0 +1,31 @@
+<!doctype html><html><body style="margin:0;background:#060606">
+<script type="module">
+import { Tracker } from '/src/lab/tracker.ts';
+import { makeHouseMotion } from '/src/lab/motion.ts';
+try {
+  const m = makeHouseMotion(640, 427);
+  const tk = new Tracker();
+  const out = { blob: [], energy: [] };
+  for (const mode of ['blob','energy']) {
+    tk.reset();
+    for (let f = 0; f < 90; f++) {
+      m.tick(f / 30);
+      const r = tk.analyse(m.canvas, m.width, m.height,
+        { count: 12, sensitivity: 0.6, motionWeight: 0.5, mode });
+      if (f === 89) {
+        out[mode] = r.boxes.map(b => ({
+          id: b.id,
+          cx: +(b.x + b.w/2).toFixed(2),
+          cy: +(b.y + b.h/2).toFixed(2),
+          w: +b.w.toFixed(2), h: +b.h.toFixed(2), age: b.age,
+        }));
+        out[mode + 'Meta'] = { ms: +r.ms.toFixed(2), coverage: +r.coverage.toFixed(3) };
+      }
+    }
+  }
+  // where is the figure at t=3.0s? period 11, u=3/11=0.27 -> sweep=0.545
+  const sweep = 0.545;
+  out.figureCx = +(1.06 - sweep * 1.18 + 0.045).toFixed(2);
+  window.__result = { status:'ok', ...out };
+} catch(e) { window.__result = { status:'error', message:String(e&&e.stack||e).slice(0,600) }; }
+</script></body></html>
