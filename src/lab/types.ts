@@ -323,6 +323,8 @@ export interface Specimen {
   video?: HTMLVideoElement;
   /** live capture, so it can be stopped when the specimen is swapped */
   stream?: MediaStream;
+  /** a specimen the lab animates itself: called once per frame before upload */
+  tick?: (t: number) => void;
   duration?: number;
   importedAt: number;
   fileSize?: number;

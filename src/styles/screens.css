@@ -260,3 +260,24 @@
   animation: cam-live 1.6s var(--e) infinite;
 }
 @keyframes cam-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* the moving specimen is offered first, because it is the one that moves */
+.housecard--motion { border-color: var(--acid); background: rgba(198, 240, 49, 0.06); }
+.housecard--motion:hover { background: rgba(198, 240, 49, 0.12); border-color: var(--acid); }
+.housecard--motion .housecard__name { color: var(--acid); }
+.housecard__thumb--motion {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(105deg, #f2e9d4 0 24%, #6b6153 42%, #1c1811 100%);
+}
+.housecard__thumb--motion i {
+  position: absolute;
+  top: 26%;
+  width: 18%;
+  height: 62%;
+  background: #14110d;
+  animation: pass 3.4s linear infinite;
+}
+.housecard__thumb--motion i:nth-child(2) { animation-delay: -1.1s; opacity: 0.5; }
+.housecard__thumb--motion i:nth-child(3) { animation-delay: -2.2s; opacity: 0.25; }
+@keyframes pass { from { left: 105%; } to { left: -25%; } }

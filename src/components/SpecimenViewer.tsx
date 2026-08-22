@@ -119,11 +119,21 @@ export function SpecimenViewer({
   useEffect(() => {
     if (specimen?.kind === 'moving') {
       let live = true;
+      const t0 = performance.now();
       const loop = () => {
         if (!live) return;
         const r = rendererRef.current;
         const v = specimen.video;
-        if (r && v && v.readyState >= 2) r.updateSource(v);
+        if (r) {
+          if (v) {
+            // a clip or the camera
+            if (v.readyState >= 2) r.updateSource(v);
+          } else if (specimen.tick) {
+            // a loop the lab draws for itself
+            specimen.tick((performance.now() - t0) / 1000);
+            r.updateSource(specimen.bitmap as TexImageSource);
+          }
+        }
         draw();
         frameRef.current = requestAnimationFrame(loop);
       };

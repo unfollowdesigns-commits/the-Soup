@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { AnalogSurface } from '../analog/AnalogSurface';
 import { makeHouseSpecimen, type HouseSpecimen } from '../lab/specimens';
+import { makeHouseMotion } from '../lab/motion';
 import { useDispatch, useLab } from '../lab/store';
 import type { Specimen } from '../lab/types';
 
@@ -136,6 +137,26 @@ export function ImportSpecimen() {
     }
   }, [dispatch]);
 
+  const motion = () => {
+    const m = makeHouseMotion(1280, 854);
+    dispatch({
+      type: 'specimen',
+      specimen: {
+        id: 'house-motion',
+        name: m.name,
+        source: 'house',
+        kind: 'moving',
+        width: m.width,
+        height: m.height,
+        bitmap: m.canvas,
+        tick: m.tick,
+        duration: m.duration,
+        importedAt: Date.now(),
+        note: m.note,
+      },
+    });
+  };
+
   const house = (kind: HouseSpecimen) => {
     const drawn = makeHouseSpecimen(kind, 1800, 1200);
     dispatch({
@@ -245,6 +266,18 @@ export function ImportSpecimen() {
             Two images the lab drew itself. Neither is a photograph and neither
             pretends to be — they are here so the bench is never empty.
           </p>
+          <button className="housecard housecard--motion" type="button" onClick={motion}>
+            <span className="housecard__thumb housecard__thumb--motion" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+            <span>
+              <span className="housecard__name">Passing — moving</span>
+              <span className="mono mono--dim">
+                A drawn loop. Tracking, sequence and flicker have something to do.
+              </span>
+            </span>
+          </button>
+
           <button className="housecard" type="button" onClick={() => house('window')}>
             <span className="housecard__thumb housecard__thumb--window" aria-hidden="true" />
             <span>
