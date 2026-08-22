@@ -18,7 +18,8 @@ import type {
   StageState,
 } from './types';
 import { defaultRecipe, proposeRecipeCode, STAGE_ORDER } from './recipe';
-import { applyLook, DEFAULT_LOOK, LOOKS } from './looks';
+import { applyLook, plainStock, DEFAULT_LOOK, LOOKS, type Look } from './looks';
+import { atStrength } from './strength';
 import { getMaterial } from './materials';
 
 /* ============================================================
@@ -39,6 +40,12 @@ export interface LabState {
   sessionStart: number;
   exportOpen: boolean;
   restoredFrom: string | null;
+  /** the look on the bench, kept so one dial can move the whole of it */
+  look: { id: string; name: string; plain: PhotoRecipe; full: PhotoRecipe } | null;
+  strength: number;
+  /** the lab opens plain: one strip of looks and one dial. The rest of
+   *  the benches are behind a single door. */
+  bench: boolean;
 }
 
 const initialStack = (): StageState[] =>
@@ -66,15 +73,13 @@ function saveArchive(archive: Recipe[]) {
 }
 
 export function initialState(): LabState {
+  const opening = LOOKS.find((l) => l.id === DEFAULT_LOOK) ?? LOOKS[0];
   return {
     screen: 'enter',
     specimen: null,
     // the bench is never set to "no process": the lab opens on a look so
     // the engine is visibly doing something before anything is touched
-    recipe: applyLook(
-      defaultRecipe(),
-      LOOKS.find((l) => l.id === DEFAULT_LOOK) ?? LOOKS[0],
-    ),
+    recipe: applyLook(defaultRecipe(), opening),
     stack: initialStack(),
     log: [],
     archive: loadArchive(),
@@ -82,6 +87,11 @@ export function initialState(): LabState {
     sessionStart: Date.now(),
     exportOpen: false,
     restoredFrom: null,
+    look: opening
+      ? { id: opening.id, name: opening.name, plain: plainStock(defaultRecipe(), opening), full: applyLook(defaultRecipe(), opening) }
+      : null,
+    strength: 1,
+    bench: false,
   };
 }
 
@@ -112,7 +122,10 @@ export type Action =
   | { type: 'archive:remove'; id: string }
   | { type: 'log:restore'; id: string }
   | { type: 'log:clear' }
-  | { type: 'export'; open: boolean };
+  | { type: 'export'; open: boolean }
+  | { type: 'look'; look: Look }
+  | { type: 'strength'; value: number }
+  | { type: 'bench'; open: boolean };
 
 function pushLog(state: LabState, spec: LogSpec, recipe: PhotoRecipe): LogEntry[] {
   const entry: LogEntry = {
@@ -255,6 +268,37 @@ export function reducer(state: LabState, action: Action): LabState {
 
     case 'export':
       return { ...state, exportOpen: action.open };
+
+    case 'look': {
+      const plain = plainStock(state.recipe, action.look);
+      const full = applyLook(state.recipe, action.look);
+      const recipe = atStrength(plain, full, state.strength);
+      return {
+        ...state,
+        recipe,
+        restoredFrom: null,
+        look: { id: action.look.id, name: action.look.name, plain, full },
+        log: pushLog(
+          state,
+          { kind: 'material', title: action.look.name, detail: getMaterial(full.material).name },
+          recipe,
+        ),
+      };
+    }
+
+    case 'strength': {
+      if (!state.look) return state;
+      const value = Math.max(0, Math.min(1, action.value));
+      return {
+        ...state,
+        strength: value,
+        recipe: atStrength(state.look.plain, state.look.full, value),
+        restoredFrom: null,
+      };
+    }
+
+    case 'bench':
+      return { ...state, bench: action.open };
   }
 }
 

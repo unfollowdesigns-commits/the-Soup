@@ -10,6 +10,7 @@ import { MaterialArchive } from './MaterialArchive';
 import { MaterialDetail } from './MaterialDetail';
 import { ProcessPanel } from './ProcessPanel';
 import { SpecimenViewer, type PlacementMode } from './SpecimenViewer';
+import { LookStrip } from './LookStrip';
 import { DepthAnalysis, ProcessingStatus } from './Status';
 
 /* ============================================================
@@ -34,7 +35,10 @@ const BENCHES: { id: Exclude<Bench, null>; label: string; key: string; hint: str
 ];
 
 export function LabShell() {
-  const { recipe, specimen, inspecting, exportOpen, restoredFrom, sessionStart } = useLab();
+  const {
+    recipe, specimen, inspecting, exportOpen, restoredFrom, sessionStart,
+    look, strength, bench: benchOpen,
+  } = useLab();
   const dispatch = useDispatch();
   const [stats, setStats] = useState<RenderStats | null>(null);
   const [bench, setBench] = useState<Bench>('cook');
@@ -80,6 +84,9 @@ export function LabShell() {
       }
       if (k === 'b') {
         e.preventDefault();
+        dispatch({ type: 'bench', open: !benchOpen });
+      } else if (k === 'd') {
+        e.preventDefault();
         setDeckClosed((c) => !c);
       } else if (k === 'h') {
         e.preventDefault();
@@ -100,7 +107,93 @@ export function LabShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [placing, bench, bare, specimen, dispatch, openBench]);
+  }, [placing, bench, bare, specimen, dispatch, openBench, benchOpen]);
+
+  /* ------------------------------------------------------------
+     THE PLAIN LAB
+     What the lab is when you have not asked for anything: the
+     photograph, a strip of whole processes, and one dial that moves
+     the chosen one between the bare stock and all of it.
+
+     Everything else — eighteen stages, the archive, the readings,
+     the log — is behind one door, because the count of things on
+     screen is the thing that makes a tool feel hard.
+     ------------------------------------------------------------ */
+  if (!benchOpen) {
+    return (
+      <div className="plain" data-bare={bare}>
+        <div className="plain__stage">
+          <SpecimenViewer
+            onStats={onStats}
+            placing="none"
+            onPlaced={() => undefined}
+            chrome="bleed"
+            bare
+          />
+        </div>
+
+        <header className="plain__top">
+          <button
+            className="rig__ident"
+            type="button"
+            title="Back to the front"
+            onClick={() => dispatch({ type: 'screen', screen: 'enter' })}
+          >
+            <Wordmark size={16} />
+          </button>
+          <span className="plain__name">{specimen?.name ?? 'Nothing on the table'}</span>
+          <span className="spacer" />
+          <button className="btn btn--quiet" type="button" onClick={() => dispatch({ type: 'screen', screen: 'import' })}>
+            Swap
+          </button>
+          <button
+            className="btn btn--primary"
+            type="button"
+            onClick={() => dispatch({ type: 'export', open: true })}
+            disabled={!specimen}
+          >
+            Save
+          </button>
+        </header>
+
+        <div className="plain__foot">
+          <div className="plain__dial">
+            <div className="plain__dial-head">
+              <span className="plain__look">{look?.name ?? 'No look'}</span>
+              <span className="plain__amount mono">{Math.round(strength * 100)}</span>
+            </div>
+            <input
+              className="plain__slider"
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={strength}
+              disabled={!look}
+              aria-label="How much of the look"
+              onChange={(e) => dispatch({ type: 'strength', value: +e.target.value })}
+            />
+            <div className="plain__ends">
+              <span>bare stock</span>
+              <span>all of it</span>
+            </div>
+            <button
+              className="plain__door"
+              type="button"
+              onClick={() => dispatch({ type: 'bench', open: true })}
+            >
+              Open the bench
+              <span className="plain__door-key mono">B</span>
+            </button>
+          </div>
+
+          <LookStrip big />
+        </div>
+
+        {exportOpen ? <DevelopExport /> : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -205,6 +298,15 @@ export function LabShell() {
 
         <span className="spine__gap" />
 
+        <button
+          type="button"
+          className="spine__key spine__key--quiet"
+          title="Back to the plain lab · B"
+          onClick={() => dispatch({ type: 'bench', open: false })}
+        >
+          <span className="spine__label">Plain</span>
+          <span className="spine__hint mono">B</span>
+        </button>
         <button
           type="button"
           className="spine__key spine__key--quiet"

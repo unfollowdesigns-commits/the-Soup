@@ -17,11 +17,11 @@ import { useDispatch, useLab } from '../lab/store';
 const TW = 168;
 const TH = 112;
 
-export function LookStrip() {
-  const { specimen, recipe } = useLab();
+export function LookStrip({ big = false }: { big?: boolean }) {
+  const { specimen, recipe, look } = useLab();
   const dispatch = useDispatch();
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
-  const [active, setActive] = useState<string | null>(null);
+  const active = look?.id ?? null;
   const jobRef = useRef(0);
 
   useEffect(() => {
@@ -68,17 +68,10 @@ export function LookStrip() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specimen]);
 
-  const load = (look: Look) => {
-    setActive(look.id);
-    dispatch({
-      type: 'edit',
-      mutate: (r) => applyLook(r, look),
-      log: { kind: 'material', title: look.name, detail: getMaterial(look.material).name },
-    });
-  };
+  const load = (l: Look) => dispatch({ type: 'look', look: l });
 
   return (
-    <div className="looks" aria-label="Looks">
+    <div className="looks" data-big={big} aria-label="Looks">
       <div className="looks__rail">
         {LOOKS.map((look) => (
           <button

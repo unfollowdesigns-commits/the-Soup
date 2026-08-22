@@ -419,6 +419,14 @@ export const TIME_LOOKS: Look[] = [
 
 LOOKS.push(...TIME_LOOKS);
 
+/**
+ * The stock with nothing done to it: the material's own character and no
+ * cook at all. This is the near end of the strength dial.
+ */
+export function plainStock(base: PhotoRecipe, look: Look): PhotoRecipe {
+  return applyLook(base, { ...look, apply: () => undefined });
+}
+
 export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   const next = applyMaterial(structuredClone(base), getMaterial(look.material));
   // start each look from the material's own character, not the last one's
