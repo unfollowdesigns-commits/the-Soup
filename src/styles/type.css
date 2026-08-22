@@ -1,0 +1,455 @@
+/* ============================================================
+   TYPE
+
+   PP Mori is a licensed face (Pangram Pangram). It is not bundled
+   and it is not fetched. Drop the files into public/fonts and the
+   whole lab switches over; until then the stack falls through to
+   Space Grotesk, then Archivo, then the system grotesk.
+
+   The named files, if you have them:
+     public/fonts/PPMori-Regular.woff2
+     public/fonts/PPMori-SemiBold.woff2
+     public/fonts/PPMori-ExtraBold.woff2
+   ============================================================ */
+
+@font-face {
+  font-family: 'PP Mori';
+  src: url('/fonts/PPMori-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PP Mori';
+  src: url('/fonts/PPMori-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PP Mori';
+  src: url('/fonts/PPMori-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   THE PROBLEM THIS FILE FIXES
+
+   Nothing in the working lab used a size above 16px. Every label
+   was 10px, every value 11px, every heading 10px uppercase with
+   the same tracking. A screen with one size and one weight has no
+   hierarchy, and a screen with no hierarchy reads as a form.
+
+   So: names are set at a size you can read across a desk, numbers
+   are set large because a darkroom is full of large numerals, and
+   the small type is reserved for the things that really are notes.
+   ============================================================ */
+
+/* ---- an instrument is an instrument, not a table row ---- */
+.instr {
+  padding: var(--s3) 0 var(--s2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.instr:last-child { border-bottom: 0; }
+
+.instr__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  margin-bottom: 2px;
+}
+.instr__label {
+  font-family: var(--f-display);
+  font-size: var(--t-tiny);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--paper-dim);
+}
+.instr__value {
+  margin-left: auto;
+  font-family: var(--f-mono);
+  font-size: var(--t-read);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+}
+.instr__unit {
+  font-size: var(--t-micro);
+  letter-spacing: var(--tr-data);
+  color: var(--paper-low);
+  margin-left: 3px;
+}
+
+.instr__track { height: 30px; }
+.instr__ticks { top: 8px; }
+.instr__tick { height: 3px; background: var(--k-300); }
+.instr__tick[data-major='true'] { height: 7px; background: var(--k-400); }
+
+.instr__rail {
+  top: 17px;
+  height: 2px;
+  background: var(--k-300);
+}
+.instr__fill {
+  top: 17px;
+  height: 2px;
+  background: var(--orange);
+}
+.instr__handle { top: 8px; height: 20px; }
+.instr__handle-line {
+  width: 3px;
+  height: 20px;
+  margin-left: -1.5px;
+  border-radius: 0;
+  background: var(--paper);
+}
+.instr[data-dragging='true'] .instr__handle-line {
+  background: var(--orange);
+  transform: none;
+  width: 5px;
+  margin-left: -2.5px;
+}
+.instr[data-dragging='true'] .instr__value { color: var(--orange); }
+
+.instr__note {
+  margin-top: var(--s2);
+  font-size: var(--t-micro);
+  line-height: 1.55;
+  color: var(--paper-low);
+  max-width: 46ch;
+}
+
+/* ---- a stage is named, not labelled ---- */
+.mod { border-bottom: 1px solid var(--line-soft); }
+.mod__head {
+  height: 52px;
+  padding: 0 var(--s4);
+  gap: var(--s3);
+}
+.mod__title .lbl {
+  font-family: var(--f-display);
+  font-size: var(--t-head);
+  font-weight: 700;
+  letter-spacing: var(--tr-tight);
+  text-transform: none;
+  color: var(--paper-dim);
+}
+.mod[data-open='true'] .mod__title .lbl,
+.mod__title:hover .lbl { color: var(--paper); }
+.mod__meta {
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  color: var(--paper-low);
+}
+.mod[data-open='true'] .mod__meta { color: var(--orange); }
+.mod__body { padding: 0 var(--s4) var(--s5); }
+
+/* the chevron was doing the work a rule should do */
+.chev { color: var(--k-400); }
+.chev[data-open='true'] { color: var(--orange); }
+
+/* ---- the bench is blue ----
+   It sits over the photograph rather than beside it, so it can carry
+   colour without interfering with what you are judging. */
+.benchpanel {
+  background: var(--blue);
+  border-right: 1px solid var(--blue-deep);
+}
+.benchpanel__head {
+  background: var(--blue-deep);
+  border-bottom: 0;
+  padding: var(--s4);
+  align-items: baseline;
+}
+.benchpanel__title {
+  font-size: var(--t-title);
+  font-weight: 800;
+  letter-spacing: var(--tr-tight);
+  color: var(--ink);
+}
+.benchpanel__hint { color: rgba(8, 8, 8, 0.62); font-size: var(--t-micro); }
+.benchpanel__shut {
+  border-color: rgba(8, 8, 8, 0.4);
+  color: rgba(8, 8, 8, 0.72);
+}
+.benchpanel__shut:hover { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+
+/* everything inside the bench is now sitting on blue */
+.benchpanel .instr { border-bottom-color: rgba(8, 8, 8, 0.16); }
+.benchpanel .instr__label { color: rgba(8, 8, 8, 0.72); }
+.benchpanel .instr__value { color: var(--ink); }
+.benchpanel .instr__unit { color: rgba(8, 8, 8, 0.5); }
+.benchpanel .instr__note { color: rgba(8, 8, 8, 0.66); }
+.benchpanel .instr__rail { background: rgba(8, 8, 8, 0.24); }
+.benchpanel .instr__fill { background: var(--orange); }
+.benchpanel .instr__tick { background: rgba(8, 8, 8, 0.2); }
+.benchpanel .instr__tick[data-major='true'] { background: rgba(8, 8, 8, 0.38); }
+.benchpanel .instr__handle-line { background: var(--ink); }
+.benchpanel .instr[data-dragging='true'] .instr__handle-line,
+.benchpanel .instr[data-dragging='true'] .instr__value { color: var(--orange); background: var(--orange); }
+.benchpanel .instr[data-dragging='true'] .instr__value { background: none; }
+
+.benchpanel .mod { border-bottom-color: rgba(8, 8, 8, 0.2); }
+.benchpanel .mod__head:hover { background: rgba(8, 8, 8, 0.08); }
+.benchpanel .mod__title .lbl { color: rgba(8, 8, 8, 0.66); }
+.benchpanel .mod[data-open='true'] .mod__title .lbl,
+.benchpanel .mod__title:hover .lbl { color: var(--ink); }
+.benchpanel .mod__meta { color: rgba(8, 8, 8, 0.55); }
+.benchpanel .mod[data-open='true'] .mod__meta { color: #ffe9e2; }
+.benchpanel .chev { color: rgba(8, 8, 8, 0.4); }
+.benchpanel .chev[data-open='true'] { color: var(--ink); }
+
+.benchpanel .lbl { color: rgba(8, 8, 8, 0.7); }
+.benchpanel .lbl--lit, .benchpanel .lbl--amber { color: var(--ink); }
+.benchpanel .mono { color: rgba(8, 8, 8, 0.62); }
+.benchpanel .mono--val { color: var(--ink); }
+.benchpanel .mono--dim { color: rgba(8, 8, 8, 0.5); }
+.benchpanel .sec-head__line { background: rgba(8, 8, 8, 0.2); }
+.benchpanel .sec-head--sub .lbl { color: var(--ink); font-weight: 700; }
+.benchpanel .hr, .benchpanel .rule { background: rgba(8, 8, 8, 0.2); }
+
+.benchpanel .btn {
+  border-color: rgba(8, 8, 8, 0.4);
+  color: var(--ink);
+  background: transparent;
+}
+.benchpanel .btn:hover:not(:disabled) { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+.benchpanel .btn--primary { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+.benchpanel .btn--primary:hover:not(:disabled) { background: var(--orange); border-color: var(--orange); color: var(--ink); }
+
+.benchpanel .seg { background: transparent; border-color: rgba(8, 8, 8, 0.3); }
+.benchpanel .seg__opt { color: rgba(8, 8, 8, 0.62); }
+.benchpanel .seg__opt:hover { color: var(--ink); }
+.benchpanel .seg__opt[aria-pressed='true'],
+.benchpanel .seg__opt[data-on='true'] { background: var(--ink); color: var(--blue); }
+
+.benchpanel .chip {
+  background: transparent;
+  border-color: rgba(8, 8, 8, 0.34);
+  color: rgba(8, 8, 8, 0.8);
+}
+.benchpanel .chip:hover { color: var(--ink); border-color: var(--ink); }
+.benchpanel .chip[aria-pressed='true'] { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+
+.benchpanel .archive__input {
+  border-color: rgba(8, 8, 8, 0.3);
+  background: rgba(8, 8, 8, 0.1);
+  color: var(--ink);
+}
+.benchpanel .archive__input::placeholder { color: rgba(8, 8, 8, 0.45); }
+.benchpanel .archive__input:focus { border-color: var(--ink); }
+
+.benchpanel .mrec { border-bottom-color: rgba(8, 8, 8, 0.16); }
+.benchpanel .mrec:hover { background: rgba(8, 8, 8, 0.07); }
+.benchpanel .mrec[data-selected='true'] { background: rgba(8, 8, 8, 0.14); }
+.benchpanel .mrec__name { color: var(--ink); font-weight: 600; }
+.benchpanel .trait__label { color: rgba(8, 8, 8, 0.6); }
+.benchpanel .mrec__meta,
+.benchpanel .mrec__years,
+.benchpanel .mrec__no { color: rgba(8, 8, 8, 0.62); }
+.benchpanel .drawer__head .lbl { color: var(--ink); font-weight: 600; }
+.benchpanel .drawer__count { color: rgba(8, 8, 8, 0.55); }
+.benchpanel .mrec__inspect .lbl { color: rgba(8, 8, 8, 0.7); }
+.benchpanel .fidelity { border-color: rgba(8, 8, 8, 0.35); color: var(--ink); }
+.benchpanel .trait__bar i { background: rgba(8, 8, 8, 0.18); }
+.benchpanel .trait__bar i[data-on='true'] { background: var(--ink); }
+.benchpanel .drawer { border-bottom-color: rgba(8, 8, 8, 0.16); }
+.benchpanel .lamp[data-state='off'] { background: rgba(8, 8, 8, 0.3); }
+
+.benchpanel .mdetail { background: var(--blue); }
+.benchpanel .mdetail__prose,
+.benchpanel .mdetail__fidelity-note,
+.benchpanel .mdetail__caveat { color: rgba(8, 8, 8, 0.75); }
+.benchpanel .mdetail__title h2 { color: var(--ink); }
+.benchpanel .spec__row { border-bottom-color: rgba(8, 8, 8, 0.16); }
+
+/* ---- the spine reads as type in the margin ---- */
+.spine__label { font-size: var(--t-body); font-weight: 700; letter-spacing: var(--tr-tight); text-transform: none; }
+.spine__key[aria-pressed='true'] { color: var(--orange); }
+.spine__key[aria-pressed='true']::before { background: var(--orange); }
+
+/* ---- the top bar names the stock at a size you can read ---- */
+.rig__loaded-name { font-size: var(--t-body); font-weight: 600; letter-spacing: -0.01em; }
+
+/* ---- looks are the most valuable thing here; stop hiding them ---- */
+.look { width: 196px; gap: 7px; }
+.look__name {
+  font-family: var(--f-display);
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--paper-dim);
+}
+.look[aria-pressed='true'] .look__name { color: var(--orange); }
+.look[aria-pressed='true'] .look__frame { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
+.looks__rail { gap: var(--s3); padding: var(--s3) var(--s4); }
+
+/* ---- the deck bar: names, not tabs ---- */
+.deck__tab .lbl {
+  font-family: var(--f-display);
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.deck__tab[aria-pressed='true'] { border-bottom-color: var(--orange); background: transparent; }
+.deck__count { color: var(--orange); }
+
+/* ---- recipe cards carry their value, not their name ---- */
+.stagecard__value,
+.stagecard__summary { font-family: var(--f-mono); }
+
+/* ============================================================
+   THE FRONT
+   A blue field, black type at full weight, one orange mark.
+   This is the one screen with no photograph on it, so it can be
+   the colour the thing is.
+   ============================================================ */
+
+.way {
+  background: var(--blue);
+  position: relative;
+  isolation: isolate;
+}
+/* the name sits on top of the mark, the way it does on the poster */
+.way__body, .way__ways, .way__top, .way__foot { position: relative; z-index: 1; }
+
+/* the mark: an orange burst behind the name, drawn not placed */
+.way::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  /* the mark sits in the empty quarter, behind the type, never over
+     the contact strip — the strip is photographs and they come first */
+  left: 26%;
+  bottom: 8%;
+  width: min(34vw, 460px);
+  aspect-ratio: 1;
+  background: var(--orange);
+  clip-path: polygon(
+    50% 0%, 57% 32%, 76% 8%, 68% 39%, 94% 24%, 76% 50%, 100% 50%,
+    76% 57%, 96% 78%, 66% 66%, 78% 94%, 56% 72%, 50% 100%, 43% 72%,
+    24% 96%, 33% 65%, 6% 78%, 25% 55%, 0% 50%, 25% 43%, 4% 22%,
+    34% 34%, 22% 6%, 44% 30%
+  );
+  opacity: 1;
+  pointer-events: none;
+  animation: burst-in 900ms var(--e) both;
+}
+@keyframes burst-in {
+  from { transform: scale(0.86) rotate(-8deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (max-width: 900px) { .way::before { width: 62vw; left: 34%; bottom: 4%; } }
+
+.way__top,
+.way__foot { border-color: rgba(8, 8, 8, 0.22); }
+.way__top .mono,
+.way__foot .mono { color: rgba(8, 8, 8, 0.66); }
+.way__top .wordmark__type { color: var(--ink); }
+.way__top .wordmark__mark { color: var(--ink); }
+
+.way__name { color: var(--ink); }
+.way__line { color: var(--ink); font-weight: 600; }
+.way__rule { background: var(--ink); height: 3px; }
+.way__blurb { color: rgba(8, 8, 8, 0.8); }
+
+.way__go {
+  background: var(--ink);
+  color: var(--blue);
+  border: 0;
+}
+.way__go:hover { background: var(--orange); color: var(--ink); }
+.way__go .wordmark__mark,
+.way__go svg { color: currentColor; }
+
+.way__ways { border-top-color: rgba(8, 8, 8, 0.22); }
+.way__ways li { border-right-color: rgba(8, 8, 8, 0.22); }
+.way__n { color: var(--ink); font-weight: 700; }
+.way__t { color: var(--ink); }
+.way__d { color: rgba(8, 8, 8, 0.72); }
+
+/* the contact strip stays a strip of film: black, on blue */
+.way__right .strip,
+.way__right > * { background: var(--ink); }
+
+/* ---- putting something in ---- */
+.import { background: var(--blue); }
+.import__head { border-bottom-color: rgba(8, 8, 8, 0.22); }
+.import__head .lbl { color: var(--ink); }
+.import__head .btn { border-color: rgba(8, 8, 8, 0.35); color: var(--ink); }
+.import__head .btn:hover { background: var(--ink); color: var(--blue); }
+.dropzone { background: rgba(8, 8, 8, 0.06); }
+.dropzone__label { color: var(--ink); }
+.dropzone__lead { color: rgba(8, 8, 8, 0.78); }
+.dropzone__corner { border-color: var(--ink); }
+.import__note { color: rgba(8, 8, 8, 0.72); }
+.import__house .lbl { color: var(--ink); }
+.import__house .housecard,
+.import__house .camcard {
+  border-color: rgba(8, 8, 8, 0.28);
+  background: rgba(8, 8, 8, 0.06);
+}
+.import__house .housecard:hover,
+.import__house .camcard:hover { background: var(--ink); }
+.import__house .housecard:hover .housecard__name,
+.import__house .camcard:hover .camcard__name { color: var(--blue); }
+.housecard__name, .camcard__name { color: var(--ink); }
+.import__house .mono--dim { color: rgba(8, 8, 8, 0.6); }
+.import__house .housecard:hover .mono--dim,
+.import__house .camcard:hover .mono--dim { color: rgba(242, 240, 236, 0.7); }
+.import .hr { background: rgba(8, 8, 8, 0.22); }
+.import .btn--primary { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+.import .btn--primary:hover { background: var(--orange); color: var(--ink); border-color: var(--orange); }
+
+/* ---- the develop sheet is a blue card on a black room ---- */
+.sheet__panel { background: var(--blue); border-color: var(--blue-deep); }
+.sheet__head { background: var(--blue-deep); border-bottom: 0; }
+.sheet__head .lbl { color: var(--ink); font-family: var(--f-display); font-size: var(--t-head); font-weight: 700; letter-spacing: var(--tr-tight); text-transform: none; }
+.sheet__head .mono { color: rgba(8, 8, 8, 0.6); }
+.sheet__head .icb { color: var(--ink); border-color: rgba(8, 8, 8, 0.3); }
+.sheet__head .icb:hover { background: var(--ink); color: var(--blue); }
+.sheet__col--record { background: rgba(8, 8, 8, 0.08); border-left-color: rgba(8, 8, 8, 0.2); }
+.sheet .lbl { color: rgba(8, 8, 8, 0.72); }
+.sheet .mono { color: rgba(8, 8, 8, 0.66); }
+.sheet .mono--val { color: var(--ink); }
+.sheet .spec__row { border-bottom-color: rgba(8, 8, 8, 0.18); }
+.sheet .seg { background: transparent; border-color: rgba(8, 8, 8, 0.3); }
+.sheet .seg__opt { color: rgba(8, 8, 8, 0.66); }
+.sheet .seg__opt:hover { color: var(--ink); }
+.sheet .seg__opt[aria-pressed='true'] { background: var(--ink); color: var(--blue); }
+.sheet .btn { border-color: rgba(8, 8, 8, 0.4); color: var(--ink); }
+.sheet .btn:hover:not(:disabled) { background: var(--ink); color: var(--blue); }
+.sheet .btn--primary { background: var(--ink); color: var(--blue); border-color: var(--ink); }
+.sheet .btn--primary:hover:not(:disabled) { background: var(--orange); color: var(--ink); border-color: var(--orange); }
+.sheet .hr { background: rgba(8, 8, 8, 0.2); }
+.sheet .instr__label { color: rgba(8, 8, 8, 0.72); }
+.sheet .instr__value { color: var(--ink); }
+.sheet .instr__note { color: rgba(8, 8, 8, 0.66); }
+.sheet .instr__rail { background: rgba(8, 8, 8, 0.24); }
+.sheet .instr__tick { background: rgba(8, 8, 8, 0.2); }
+.sheet .instr__handle-line { background: var(--ink); }
+.sheet .instr { border-bottom-color: rgba(8, 8, 8, 0.16); }
+.clip__view { background: var(--ink); border-right-color: var(--blue-deep); }
+.clip__gates { background: rgba(8, 8, 8, 0.28); border-color: rgba(8, 8, 8, 0.28); }
+.clip__gate { background: var(--blue); color: rgba(8, 8, 8, 0.66); }
+.clip__gate .clip__gate-name { color: var(--ink); }
+.clip__gate[aria-pressed='false']:hover:not(:disabled) { background: var(--blue-lift); }
+.clip__gate[aria-pressed='true'],
+.clip__gate[aria-pressed='true']:hover { background: var(--ink); }
+.clip__gate[aria-pressed='true'] .clip__gate-name { color: var(--blue); }
+.clip__gate[aria-pressed='true'] .mono { color: rgba(242, 240, 236, 0.6); }
+.clip__gatenote { color: var(--paper-dim); }
+.clip__time input { background: rgba(8, 8, 8, 0.14); border-color: rgba(8, 8, 8, 0.3); color: var(--ink); }
+.clip__out .spec__row { border-bottom-color: rgba(8, 8, 8, 0.18); }
+.clip__bar { background: rgba(8, 8, 8, 0.3); }
+.clip__check-name { color: var(--ink); }
+.clip__done { color: var(--ink); font-weight: 600; }
+.clip__error { color: #ffe0d6; }
+.clip__scrub input { accent-color: var(--orange); }

@@ -14,7 +14,7 @@
 .rig {
   --foot: 196px;
   --spine: 92px;
-  --bench: 336px;
+  --bench: 404px;
   --lip: 42px;      /* the instrument cluster's own room */
 
   position: relative;
@@ -33,7 +33,7 @@
 .rig[data-bare='true'] { --foot: 0px; }
 
 @media (min-width: 1700px) {
-  .rig { --bench: 380px; --spine: 104px; }
+  .rig { --bench: 448px; --spine: 104px; }
 }
 
 /* ---- the photograph, under everything ---- */

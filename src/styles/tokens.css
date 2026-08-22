@@ -1,38 +1,59 @@
 /* ============================================================
    SOUP — TOKENS
-   Black, paper, and one acid. Nothing sits in the middle.
+
+   Three colours, used flat and used hard: a saturated blue, an
+   orange-red, and black. No gradients between them, no tints of
+   them, nothing in the middle. Type sits directly on the colour
+   at full weight.
+
+   The photograph is the exception. It is judged against black and
+   nothing else, so the room around a picture stays black and the
+   blue lives in the chrome.
    ============================================================ */
 
 :root {
+  /* ---- THE THREE ------------------------------------------- */
+  --blue: #0b4cc7;       /* the colour the thing is */
+  --blue-deep: #073a9c;  /* pressed, and the edge of a blue field */
+  --blue-lift: #1a5ee0;  /* hover */
+  --orange: #ff3d10;     /* the one hot colour. State, never decoration. */
+  --ink: #080808;        /* type on blue, and the room */
+
   /* ---- GROUND ---------------------------------------------
-     Four steps only. Anything that needs a fifth is decoration. */
-  --k-000: #060606;   /* the room */
-  --k-100: #0d0d0d;   /* the surface things sit on */
-  --k-200: #161616;   /* raised */
-  --k-300: #232323;   /* pressed / control bed */
-  --k-400: #3a3a3a;   /* the only mid-grey allowed */
+     Black, because a photograph is judged against black. */
+  --k-000: #080808;   /* the room */
+  --k-100: #0f0f0f;   /* the surface things sit on */
+  --k-200: #191919;   /* raised */
+  --k-300: #262626;   /* pressed / control bed */
+  --k-400: #3d3d3d;   /* the only mid-grey allowed */
 
-  --paper: #edeae3;   /* print */
-  --paper-dim: #a8a49b;
-  --paper-low: #6f6c65;
+  --paper: #f2f0ec;   /* print */
+  --paper-dim: #a5a29b;
+  --paper-low: #6b6862;
 
-  /* ---- ACID -----------------------------------------------
-     Used hard and used rarely. State, never decoration. */
-  --acid: #c6f031;
-  --acid-ink: #0a0d02;   /* type that sits on acid */
-  --ember: #ff4d19;      /* damage, burn, destructive */
-  --ice: #7fd4ff;        /* trace, analysis, cold */
+  /* the old names still used by half the lab, pointed at the new three */
+  --acid: var(--orange);
+  --acid-ink: #fff4f0;   /* type that sits on orange */
+  --ember: var(--orange);
+  --ice: var(--blue-lift);
 
   /* ---- LINES ----------------------------------------------- */
-  --line: rgba(237, 234, 227, 0.14);
-  --line-soft: rgba(237, 234, 227, 0.07);
-  --line-hard: rgba(237, 234, 227, 0.34);
+  --line: rgba(242, 240, 236, 0.15);
+  --line-soft: rgba(242, 240, 236, 0.075);
+  --line-hard: rgba(242, 240, 236, 0.38);
+  --line-blue: rgba(26, 94, 224, 0.55);
 
   /* ---- TYPE -----------------------------------------------
      Two faces. A heavy grotesk that does the shouting, and a
      mono that does the counting. No third face. */
-  --f-display: 'Archivo', 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --f-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* PP Mori if it is on the machine or dropped into /public/fonts,
+     then the nearest grotesks that are actually free, then the system.
+     See docs/TYPE.md — nothing here depends on a font that is not
+     present; it degrades to a heavier fallback, not to a different
+     design. */
+  --f-display: 'PP Mori', 'Mori', 'Space Grotesk', 'Archivo', 'Inter',
+    -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --f-mono: 'PP Mori Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* a scale with actual range: 10px to 120px, not 9 to 18 */
   --t-nano: 9px;
@@ -43,6 +64,12 @@
   --t-large: 22px;
   --t-huge: 38px;
   --t-shout: clamp(58px, 11.5vw, 184px);
+  /* the sizes the working screens were missing: nothing in the lab
+     used anything above 16px, which is the whole reason it read flat */
+  --t-head: 15px;      /* a stage name */
+  --t-title: 21px;     /* a bench name */
+  --t-read: 27px;      /* the number an instrument is showing */
+  --t-shout-s: 44px;   /* a heading that has to carry a screen */
 
   /* tracking belongs to display type, not to every label */
   --tr-tight: -0.035em;
@@ -110,18 +137,18 @@
   --t-400: var(--paper-low);
   --t-500: #4b4944;
 
-  --a-amber: var(--acid);
-  --a-amber-dim: #8fae1e;
-  --a-red: var(--ember);
-  --a-orange: var(--ember);
-  --a-chem: var(--acid);
-  --a-blue: var(--ice);
+  --a-amber: var(--orange);
+  --a-amber-dim: #c22d0a;
+  --a-red: var(--orange);
+  --a-orange: var(--orange);
+  --a-chem: var(--orange);
+  --a-blue: var(--blue-lift);
 
   --line-000: var(--line-soft);
   --line-100: var(--line);
   --line-200: var(--line);
   --line-300: var(--line-hard);
-  --line-amber: var(--acid);
+  --line-amber: var(--orange);
 
   --f-sans: var(--f-display);
   --f-serif: var(--f-display);
