@@ -15,6 +15,8 @@ import { timeOf, timeOfSec, useDispatch, useLab } from '../lab/store';
 import type { LogEntry, PhotoRecipe, StageId } from '../lab/types';
 import { DIALS, toggleStage } from '../lab/stageDial';
 import { Cross } from './MaterialDetail';
+import { LookStrip } from './LookStrip';
+import { LOOKS } from '../lab/looks';
 
 /* ============================================================
    THE DECK
@@ -22,21 +24,27 @@ import { Cross } from './MaterialDetail';
    experiment log, and the archived recipes.
    ============================================================ */
 
-export type DeckTab = 'stack' | 'log' | 'recipes' | 'random';
+export type DeckTab = 'looks' | 'stack' | 'log' | 'recipes' | 'random';
+
+export const DECK_TABS: DeckTab[] = ['looks', 'stack', 'random', 'log', 'recipes'];
 
 export function Deck({
   tab,
   setTab,
   collapsed,
   setCollapsed,
+  float = false,
 }: {
   tab: DeckTab;
   setTab: (t: DeckTab) => void;
   collapsed: boolean;
   setCollapsed: (c: boolean) => void;
+  /** the rig floats the bench over the photograph instead of docking it */
+  float?: boolean;
 }) {
   const { log, archive } = useLab();
   const tabs: { id: DeckTab; label: string; count?: number }[] = [
+    { id: 'looks', label: 'Looks', count: LOOKS.length },
     { id: 'stack', label: 'Recipe' },
     { id: 'random', label: 'Roll the dice' },
     { id: 'log', label: 'Log', count: log.length },
@@ -44,7 +52,11 @@ export function Deck({
   ];
 
   return (
-    <section className="deck tooth" data-collapsed={collapsed} aria-label="Bench">
+    <section
+      className={float ? 'deck deck--float' : 'deck tooth'}
+      data-collapsed={collapsed}
+      aria-label="Bench"
+    >
       <header className="deck__bar">
         {tabs.map((t) => (
           <button
@@ -81,6 +93,7 @@ export function Deck({
 
       {!collapsed ? (
         <div className="deck__body">
+          {tab === 'looks' ? <LookStrip /> : null}
           {tab === 'stack' ? <ExperimentStack /> : null}
           {tab === 'random' ? <RandomExperiment /> : null}
           {tab === 'log' ? <ExperimentLog /> : null}

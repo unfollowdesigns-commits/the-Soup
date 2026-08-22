@@ -30,11 +30,18 @@ export function SpecimenViewer({
   onTrace,
   placing,
   onPlaced,
+  chrome = 'stacked',
+  bare = false,
 }: {
   onStats: (s: RenderStats | null) => void;
   onTrace?: (t: TraceResult | null) => void;
   placing: PlacementMode;
   onPlaced: () => void;
+  /** stacked: looks, bar and stage in a column. bleed: the photograph
+      fills the room and the bar floats over it. */
+  chrome?: 'stacked' | 'bleed';
+  /** hide the floating bar entirely — just the photograph */
+  bare?: boolean;
 }) {
   const vision = useVision();
   const { specimen, recipe } = useLab();
@@ -220,8 +227,8 @@ export function SpecimenViewer({
     : 100;
 
   return (
-    <div className="viewer">
-      <LookStrip />
+    <div className={chrome === 'bleed' ? 'viewer viewer--bleed' : 'viewer'} data-bare={bare}>
+      {chrome === 'stacked' ? <LookStrip /> : null}
       <ViewerBar
         view={view}
         setView={setView}

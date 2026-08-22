@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RenderStats } from '../engine/renderer';
 import { getMaterial } from '../lab/materials';
 import { applyMaterial } from '../lab/recipe';
@@ -13,80 +13,146 @@ import { SpecimenViewer, type PlacementMode } from './SpecimenViewer';
 import { DepthAnalysis, ProcessingStatus } from './Status';
 
 /* ============================================================
-   LAB SHELL
-   The room: archive on the left, the photograph in the middle,
-   the workstation on the right, the bench in front of you.
+   THE RIG
+   A darkroom, not a dashboard.
+
+   The photograph is the room. Nothing is permanently parked
+   beside it: the archive, the cook and the readings are benches
+   you pull open over the picture and push shut again. The bench
+   along the foot holds the looks and the recipe, because those
+   are the two things you touch constantly.
+
+   Everything has a key. Nothing has a card.
    ============================================================ */
 
-type Rail = 'process' | 'analysis';
+type Bench = null | 'stock' | 'cook' | 'read';
+
+const BENCHES: { id: Exclude<Bench, null>; label: string; key: string; hint: string }[] = [
+  { id: 'stock', label: 'Stock', key: 's', hint: 'The material archive' },
+  { id: 'cook', label: 'Cook', key: 'c', hint: 'Every stage of the process' },
+  { id: 'read', label: 'Read', key: 'r', hint: 'What the engine is doing' },
+];
 
 export function LabShell() {
   const { recipe, specimen, inspecting, exportOpen, restoredFrom, sessionStart } = useLab();
   const dispatch = useDispatch();
   const [stats, setStats] = useState<RenderStats | null>(null);
-  const [rail, setRail] = useState<Rail>('process');
-  const [deckTab, setDeckTab] = useState<DeckTab>('stack');
+  const [bench, setBench] = useState<Bench>('cook');
+  const [deckTab, setDeckTab] = useState<DeckTab>('looks');
   const [deckClosed, setDeckClosed] = useState(false);
+  const [bare, setBare] = useState(false);
   const [placing, setPlacing] = useState<PlacementMode>('none');
+  const benchRef = useRef<HTMLDivElement>(null);
 
   const onStats = useCallback((s: RenderStats | null) => setStats(s), []);
+  const material = getMaterial(recipe.material);
+
+  const openBench = useCallback((id: Exclude<Bench, null>) => {
+    setBare(false);
+    setBench((b) => (b === id ? null : id));
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 'Escape' && placing !== 'none') setPlacing('none');
-      if (e.key.toLowerCase() === 'e' && (e.metaKey || e.ctrlKey)) {
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key.toLowerCase() === 'e') {
+          e.preventDefault();
+          dispatch({ type: 'export', open: true });
+        }
+        return;
+      }
+      if (e.altKey) return;
+      const k = e.key.toLowerCase();
+
+      if (e.key === 'Escape') {
+        if (placing !== 'none') setPlacing('none');
+        else if (bench) setBench(null);
+        else if (bare) setBare(false);
+        return;
+      }
+      const hit = BENCHES.find((b) => b.key === k);
+      if (hit) {
         e.preventDefault();
-        dispatch({ type: 'export', open: true });
+        openBench(hit.id);
+        return;
+      }
+      if (k === 'b') {
+        e.preventDefault();
+        setDeckClosed((c) => !c);
+      } else if (k === 'h') {
+        e.preventDefault();
+        setBare((v) => {
+          if (!v) {
+            setBench(null);
+            setDeckClosed(true);
+          } else {
+            setDeckClosed(false);
+          }
+          return !v;
+        });
+      } else if (k === 'l' && specimen) {
+        dispatch({ type: 'screen', screen: 'light' });
+      } else if (k === 'p' && specimen) {
+        dispatch({ type: 'screen', screen: 'press' });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [placing, dispatch]);
+  }, [placing, bench, bare, specimen, dispatch, openBench]);
 
   return (
-    <div className="lab">
-      <header className="lab__bar">
-        <h1 className="lab__ident">
-          <Wordmark size={17} />
-        </h1>
+    <div
+      className="rig"
+      data-bare={bare}
+      data-bench={bench ?? 'none'}
+      data-foot={deckClosed ? 'shut' : 'open'}
+    >
+      {/* ---- the photograph, edge to edge ---- */}
+      <div className="rig__stage">
+        <SpecimenViewer
+          onStats={onStats}
+          placing={placing}
+          onPlaced={() => setPlacing('none')}
+          chrome="bleed"
+          bare={bare}
+        />
+      </div>
+
+      {/* ---- chrome floating over it ---- */}
+      <header className="rig__top">
+        <button
+          className="rig__ident"
+          type="button"
+          title="Back to the front"
+          onClick={() => dispatch({ type: 'screen', screen: 'enter' })}
+        >
+          <Wordmark size={16} />
+        </button>
+
+        <span className="rig__loaded" title={material.notes.tonal}>
+          <span className="rig__loaded-swatch" aria-hidden="true">
+            {material.swatch.map((c) => (
+              <i key={c} style={{ background: c }} />
+            ))}
+          </span>
+          <span className="rig__loaded-name">{material.name}</span>
+          <span className="mono mono--dim">{material.isoLabel}</span>
+        </span>
 
         <span className="spacer" />
 
         {restoredFrom ? (
-          <span className="lab__restored mono">Returned to {restoredFrom}</span>
+          <span className="rig__restored mono">← {restoredFrom}</span>
         ) : null}
 
-        <div className="lab__session">
-          <span className="lbl">Session</span>
-          <span className="mono mono--val">{timeOf(sessionStart)}</span>
-          <span className="lamp" data-state={specimen ? 'on' : 'off'} />
-        </div>
+        <span className="rig__session mono mono--dim" title="Session opened">
+          {timeOf(sessionStart)}
+        </span>
 
-        <button
-          className="btn"
-          type="button"
-          onClick={() => dispatch({ type: 'screen', screen: 'import' })}
-        >
+        <button className="btn btn--quiet" type="button" onClick={() => dispatch({ type: 'screen', screen: 'import' })}>
           Swap
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => dispatch({ type: 'screen', screen: 'light' })}
-          disabled={!specimen}
-          title="Depth-aware light injection, WebGPU"
-        >
-          Light
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => dispatch({ type: 'screen', screen: 'press' })}
-          disabled={!specimen}
-        >
-          Press
         </button>
         <button
           className="btn btn--primary"
@@ -98,80 +164,157 @@ export function LabShell() {
         </button>
       </header>
 
-      <div className="lab__main">
-        <div className="lab__left">
-          <MaterialArchive
-            selected={recipe.material}
-            onSelect={(m) =>
-              dispatch({
-                type: 'edit',
-                mutate: (r) => applyMaterial(r, m),
-                log: { kind: 'material', title: m.name, detail: `${m.manufacturer} · ${m.isoLabel}` },
-              })
-            }
-            onInspect={(id) => dispatch({ type: 'inspect', id })}
-          />
-          {inspecting ? (
-            <MaterialDetail
-              id={inspecting}
-              loaded={inspecting === recipe.material}
-              onClose={() => dispatch({ type: 'inspect', id: null })}
-              onLoad={() => {
-                const m = getMaterial(inspecting);
-                dispatch({
-                  type: 'edit',
-                  mutate: (r) => applyMaterial(r, m),
-                  log: { kind: 'material', title: m.name, detail: `${m.manufacturer} · ${m.isoLabel}` },
-                });
-              }}
-            />
-          ) : null}
-        </div>
+      {/* ---- the spine: benches, not rails ---- */}
+      <nav className="rig__spine" aria-label="Benches">
+        {BENCHES.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className="spine__key"
+            aria-pressed={bench === b.id}
+            title={`${b.hint} · ${b.key.toUpperCase()}`}
+            onClick={() => openBench(b.id)}
+          >
+            <span className="spine__label">{b.label}</span>
+            <span className="spine__hint mono">{b.key.toUpperCase()}</span>
+          </button>
+        ))}
 
-        <div className="lab__centre">
-          <SpecimenViewer onStats={onStats} placing={placing} onPlaced={() => setPlacing('none')} />
-        </div>
+        <span className="spine__gap" />
 
-        <div className="lab__right">
-          <div className="rail__tabs">
+        <button
+          type="button"
+          className="spine__key spine__key--go"
+          disabled={!specimen}
+          title="Depth-aware light injection, live · L"
+          onClick={() => dispatch({ type: 'screen', screen: 'light' })}
+        >
+          <span className="spine__label">Light</span>
+          <span className="spine__hint mono">L</span>
+        </button>
+        <button
+          type="button"
+          className="spine__key spine__key--go"
+          disabled={!specimen}
+          title="Lay it out as a poster · P"
+          onClick={() => dispatch({ type: 'screen', screen: 'press' })}
+        >
+          <span className="spine__label">Press</span>
+          <span className="spine__hint mono">P</span>
+        </button>
+
+        <span className="spine__gap" />
+
+        <button
+          type="button"
+          className="spine__key spine__key--quiet"
+          aria-pressed={bare}
+          title="Just the photograph · H"
+          onClick={() => {
+            setBench(null);
+            setDeckClosed(!bare);
+            setBare(!bare);
+          }}
+        >
+          <span className="spine__label">{bare ? 'Show' : 'Bare'}</span>
+          <span className="spine__hint mono">H</span>
+        </button>
+      </nav>
+
+      {/* ---- a bench, pulled open over the picture ---- */}
+      {bench ? (
+        <aside className="benchpanel" ref={benchRef} data-id={bench}>
+          <header className="benchpanel__head">
+            <h2 className="benchpanel__title">
+              {BENCHES.find((b) => b.id === bench)?.label}
+            </h2>
+            <span className="benchpanel__hint mono mono--dim">
+              {BENCHES.find((b) => b.id === bench)?.hint}
+            </span>
+            <span className="spacer" />
             <button
+              className="benchpanel__shut"
               type="button"
-              className="rail__tab"
-              aria-pressed={rail === 'process'}
-              onClick={() => setRail('process')}
+              onClick={() => setBench(null)}
+              aria-label="Shut the bench"
             >
-              <span className="lbl lbl--wide">Cook</span>
+              <span className="mono">esc</span>
             </button>
-            <button
-              type="button"
-              className="rail__tab"
-              aria-pressed={rail === 'analysis'}
-              onClick={() => setRail('analysis')}
-            >
-              <span className="lbl lbl--wide">Read</span>
-            </button>
+          </header>
+
+          <div className="benchpanel__body">
+            {bench === 'stock' ? (
+              <>
+                <MaterialArchive
+                  selected={recipe.material}
+                  onSelect={(m) =>
+                    dispatch({
+                      type: 'edit',
+                      mutate: (r) => applyMaterial(r, m),
+                      log: {
+                        kind: 'material',
+                        title: m.name,
+                        detail: `${m.manufacturer} · ${m.isoLabel}`,
+                      },
+                    })
+                  }
+                  onInspect={(id) => dispatch({ type: 'inspect', id })}
+                />
+                {inspecting ? (
+                  <MaterialDetail
+                    id={inspecting}
+                    loaded={inspecting === recipe.material}
+                    onClose={() => dispatch({ type: 'inspect', id: null })}
+                    onLoad={() => {
+                      const m = getMaterial(inspecting);
+                      dispatch({
+                        type: 'edit',
+                        mutate: (r) => applyMaterial(r, m),
+                        log: {
+                          kind: 'material',
+                          title: m.name,
+                          detail: `${m.manufacturer} · ${m.isoLabel}`,
+                        },
+                      });
+                    }}
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {bench === 'cook' ? (
+              <ProcessPanel
+                placing={placing}
+                setPlacing={setPlacing}
+                onInspect={(id) => dispatch({ type: 'inspect', id })}
+              />
+            ) : null}
+
+            {bench === 'read' ? (
+              <div className="rail__analysis scroll-y">
+                <ProcessingStatus stats={stats} />
+                <DepthAnalysis stats={stats} />
+              </div>
+            ) : null}
           </div>
-          {rail === 'process' ? (
-            <ProcessPanel
-              placing={placing}
-              setPlacing={setPlacing}
-              onInspect={(id) => dispatch({ type: 'inspect', id })}
-            />
-          ) : (
-            <div className="rail__analysis scroll-y">
-              <ProcessingStatus stats={stats} />
-              <DepthAnalysis stats={stats} />
-            </div>
-          )}
-        </div>
+        </aside>
+      ) : null}
+
+      {/* ---- the bench along the foot ---- */}
+      <div className="rig__foot">
+        <Deck
+          tab={deckTab}
+          setTab={setDeckTab}
+          collapsed={deckClosed}
+          setCollapsed={setDeckClosed}
+          float
+        />
       </div>
 
-      <Deck tab={deckTab} setTab={setDeckTab} collapsed={deckClosed} setCollapsed={setDeckClosed} />
-
       {placing !== 'none' ? (
-        <div className="lab__hint" role="status">
+        <div className="rig__say" role="status">
           <span className="lbl lbl--amber">Placing a burn</span>
-          <span className="mono">Click the specimen · Esc to stop</span>
+          <span className="mono">Click the photograph · esc to stop</span>
         </div>
       ) : null}
 

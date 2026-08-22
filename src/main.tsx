@@ -6,6 +6,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/controls.css';
 import './styles/lab.css';
+import './styles/rig.css';
 import './styles/screens.css';
 import './styles/mobile.css';
 

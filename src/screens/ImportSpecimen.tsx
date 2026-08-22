@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
+import { INTAKE_ACCEPT, IntakeError, openFile, pickFile } from '../lab/intake';
 import { AnalogSurface } from '../analog/AnalogSurface';
 import { makeHouseSpecimen, type HouseSpecimen } from '../lab/specimens';
 import { makeHouseMotion } from '../lab/motion';
 import { openCamera } from '../lab/camera';
 import { useDispatch, useLab } from '../lab/store';
-import type { Specimen } from '../lab/types';
 
 /* ============================================================
    SCREEN 2 — IMPORT SPECIMEN
@@ -23,68 +23,18 @@ export function ImportSpecimen() {
   const accept = useCallback(
     async (file: File) => {
       setError(null);
-      const isVideo = file.type.startsWith('video/');
-      if (!file.type.startsWith('image/') && !isVideo) {
-        setError('That is not something the lab can read. Try a JPEG, PNG, WebP or MP4.');
-        return;
-      }
+      setOpening(true);
       try {
-        if (isVideo) {
-          // a moving specimen goes through exactly the same engine, one
-          // frame at a time; nothing is uploaded here either
-          const video = document.createElement('video');
-          video.src = URL.createObjectURL(file);
-          video.muted = true;
-          video.loop = true;
-          video.playsInline = true;
-          video.crossOrigin = 'anonymous';
-          await new Promise<void>((res, rej) => {
-            video.onloadedmetadata = () => res();
-            video.onerror = () => rej(new Error('decode'));
-          });
-          await video.play().catch(() => undefined);
-          dispatch({
-            type: 'specimen',
-            specimen: {
-              id: `sp-${Date.now().toString(36)}`,
-              name: file.name.replace(/\.[^.]+$/, ''),
-              source: 'imported',
-              kind: 'moving',
-              width: video.videoWidth,
-              height: video.videoHeight,
-              bitmap: video,
-              video,
-              duration: video.duration,
-              importedAt: Date.now(),
-              fileSize: file.size,
-            },
-          });
-          return;
-        }
-        const bitmap = await createImageBitmap(file);
-        const s: Specimen = {
-          id: `sp-${Date.now().toString(36)}`,
-          name: file.name.replace(/\.[^.]+$/, ''),
-          source: 'imported',
-          kind: 'still',
-          width: bitmap.width,
-          height: bitmap.height,
-          bitmap,
-          importedAt: Date.now(),
-          fileSize: file.size,
-        };
-        dispatch({ type: 'specimen', specimen: s });
-      } catch {
-        setError('The file could not be decoded. Try a JPEG, PNG, WebP or MP4.');
+        dispatch({ type: 'specimen', specimen: await openFile(file) });
+      } catch (e) {
+        setError(e instanceof IntakeError ? e.message : 'The lab could not read that.');
+      } finally {
+        setOpening(false);
       }
     },
     [dispatch],
   );
 
-  /* ---- the camera ----------------------------------------
-     Live capture is just a moving specimen: the same engine runs
-     on every frame, so every look, every cook and the trace layer
-     work on it exactly as they do on a file. */
   /* ---- the camera ----------------------------------------
      Live capture is just a moving specimen: the same engine runs
      on every frame, so every look, every cook and the trace layer
@@ -171,7 +121,7 @@ export function ImportSpecimen() {
             onDrop={(e) => {
               e.preventDefault();
               setOver(false);
-              const f = e.dataTransfer.files?.[0];
+              const f = pickFile(e.dataTransfer);
               if (f) void accept(f);
             }}
           >
@@ -192,7 +142,7 @@ export function ImportSpecimen() {
               ref={input}
               className="sr"
               type="file"
-              accept="image/*,video/*"
+              accept={INTAKE_ACCEPT}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void accept(f);

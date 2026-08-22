@@ -1,4 +1,5 @@
 import { LabShell } from './components/LabShell';
+import { DropAnywhere } from './components/DropAnywhere';
 import { MobileLab } from './mobile/MobileLab';
 import { useLab } from './lab/store';
 import { lazy, Suspense } from 'react';
@@ -26,7 +27,7 @@ function Bench({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
+function Screen() {
   const { screen } = useLab();
   const compact = useMediaQuery('(max-width: 900px)');
 
@@ -35,4 +36,14 @@ export default function App() {
   if (screen === 'press') return <Bench><PressBench /></Bench>;
   if (screen === 'light') return <Bench><LightBench /></Bench>;
   return compact ? <MobileLab /> : <LabShell />;
+}
+
+export default function App() {
+  return (
+    <>
+      <Screen />
+      {/* the whole window takes a drop, on every screen */}
+      <DropAnywhere />
+    </>
+  );
 }
