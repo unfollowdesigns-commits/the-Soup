@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8"><title>mp4 structure</title></head>
+<body><pre id="log" style="font:12px monospace;color:#ddd;background:#111;padding:12px"></pre>
+<script type="module">
+  import { muxMp4 } from '/src/video/mux.ts';
+  const log = (s) => document.getElementById('log').textContent += s + '\n';
+  window.__result = { status: 'running' };
+  try {
+    // a plausible AVCDecoderConfigurationRecord: High profile, level 4.0
+    const description = new Uint8Array([
+      1, 0x64, 0x00, 0x28, 0xff,           // version, profile, compat, level, lengthSizeMinusOne|0xfc
+      0xe1, 0, 8, 0x67,0x64,0,0x28,0xac,0xd9,0x40,0x50,   // 1 SPS, 8 bytes
+      1, 0, 4, 0x68,0xee,0x3c,0xb0,                        // 1 PPS, 4 bytes
+    ]);
+    const n = 48;
+    const samples = [];
+    let total = 0;
+    for (let i = 0; i < n; i++) { const size = 900 + (i % 7) * 40; samples.push({ size, key: i % 24 === 0 }); total += size; }
+    const data = new Uint8Array(total);
+    for (let i = 0; i < total; i++) data[i] = i & 0xff;
+
+    const blob = muxMp4({ width: 3840, height: 2160, timescale: 90000, delta: 3750, samples, description, data });
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    const dv = new DataView(buf.buffer);
+    const A = (o) => String.fromCharCode(buf[o],buf[o+1],buf[o+2],buf[o+3]);
+
+    const seen = [];
+    const walk = (start, end, depth) => {
+      let o = start;
+      while (o + 8 <= end) {
+        let size = dv.getUint32(o);
+        const type = A(o + 4);
+        let head = 8;
+        if (size === 1) { size = Number(dv.getBigUint64(o + 8)); head = 16; }
+        if (size < head || o + size > end) throw new Error(`bad box ${type} size ${size} at ${o} (parent ends ${end})`);
+        seen.push('  '.repeat(depth) + type + ' ' + size);
+        const container = ['moov','trak','mdia','minf','stbl','dinf'].includes(type);
+        if (container) walk(o + head, o + size, depth + 1);
+        if (type === 'stco') {
+          const cnt = dv.getUint32(o + 12);
+          const off = dv.getUint32(o + 16);
+          if (cnt !== 1) throw new Error('stco entry count ' + cnt);
+          // the offset must land on the first byte of sample data
+          if (buf[off] !== 0 || buf[off + 1] !== 1) throw new Error('stco points at ' + off + ' -> ' + buf[off] + ',' + buf[off+1]);
+          log('stco offset ' + off + ' lands on sample data ✓');
+        }
+        if (type === 'stsz') {
+          const cnt = dv.getUint32(o + 16);
+          if (cnt !== n) throw new Error('stsz count ' + cnt);
+          let sum = 0; for (let i = 0; i < cnt; i++) sum += dv.getUint32(o + 20 + i * 4);
+          if (sum !== total) throw new Error('stsz sizes sum ' + sum + ' != ' + total);
+          log('stsz ' + cnt + ' samples, ' + sum + ' bytes ✓');
+        }
+        if (type === 'stss') {
+          const cnt = dv.getUint32(o + 12);
+          if (cnt !== samples.filter(s => s.key).length) throw new Error('stss count ' + cnt);
+          log('stss ' + cnt + ' sync samples ✓');
+        }
+        if (type === 'tkhd') {
+          const w = dv.getUint32(o + 8 + 4 + 72) / 65536, h = dv.getUint32(o + 8 + 4 + 76) / 65536;
+          if (w !== 3840 || h !== 2160) throw new Error('tkhd size ' + w + 'x' + h);
+          log('tkhd ' + w + 'x' + h + ' ✓');
+        }
+        o += size;
+      }
+      if (o !== end) throw new Error('boxes do not fill parent: ended at ' + o + ' of ' + end);
+    };
+    walk(0, buf.length, 0);
+    log(seen.join('\n'));
+    const order = seen.map(s => s.trim().split(' ')[0]);
+    if (order[0] !== 'ftyp' || order[1] !== 'mdat' || order[2] !== 'moov') throw new Error('top order ' + order.slice(0,3));
+    if (!order.includes('avcC')) log('note: avcC is inside avc1, not walked');
+    window.__result = { status: 'ok', bytes: buf.length, boxes: order.length, tree: seen.map(s=>s.trimEnd()) };
+  } catch (e) {
+    log('FAILED ' + (e.stack || e));
+    window.__result = { status: 'error', message: String(e.message || e) };
+  }
+</script></body></html>

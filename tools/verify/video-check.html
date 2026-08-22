@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8"><title>video export check</title>
+<style>body{margin:0;background:#060606;color:#edeae3;font:12px/1.5 monospace;padding:16px}
+canvas,video{display:block;margin:8px 0;max-width:760px;border:1px solid #333}</style></head>
+<body><pre id="log"></pre><video id="v" controls muted></video>
+<script type="module">
+  import { exportClip, pickCodec } from '/src/video/export.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe } from '/src/lab/recipe.ts';
+  import { applyLook, LOOKS, DEFAULT_LOOK } from '/src/lab/looks.ts';
+  import { makeHouseMotion } from '/src/lab/motion.ts';
+  import { layoutGate, GATES } from '/src/lab/gate.ts';
+
+  const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+  window.__result = { status: 'running' };
+
+  try {
+    // layout sanity first — pure arithmetic, no GPU
+    const geo = {};
+    for (const g of GATES) {
+      const l = layoutGate(g, 3840, 2160, 'gate');
+      geo[g.id] = { x: l.x, y: l.y, w: l.w, h: l.h, cols: l.cols.length, aspect: +(l.w / l.h).toFixed(3) };
+    }
+    log('gate layouts @3840x2160: ' + JSON.stringify(geo, null, 1));
+
+    const codec = await pickCodec(1920, 1080, 12e6, 24);
+    log('codec chosen: ' + codec);
+
+    const m = makeHouseMotion(960, 640);
+    const specimen = {
+      id: 'x', name: 'Passing', source: 'house', kind: 'moving',
+      width: m.width, height: m.height, bitmap: m.canvas, tick: m.tick,
+      duration: m.duration, importedAt: Date.now(),
+    };
+    const recipe = applyLook(defaultRecipe(), LOOKS.find((l) => l.id === DEFAULT_LOOK));
+    const mat = getMaterial(recipe.material);
+
+    const t0 = performance.now();
+    const res = await exportClip(
+      specimen, recipe, mat,
+      { gate: 's8', fit: 'gate', size: 'hd', fps: 18, from: 0, to: 1.5, bitrate: 12, wear: 0.3, liveGrain: true },
+      (p) => { window.__progress = p; },
+    );
+    const secs = (performance.now() - t0) / 1000;
+    log(`exported ${res.frames} frames ${res.width}x${res.height} ${res.codec} ${res.container} ` +
+        `${(res.blob.size/1024).toFixed(0)} kB in ${secs.toFixed(1)}s`);
+
+    // does it actually play?
+    const v = document.getElementById('v');
+    v.src = URL.createObjectURL(res.blob);
+    const meta = await new Promise((ok, bad) => {
+      v.onloadedmetadata = () => ok({ duration: v.duration, w: v.videoWidth, h: v.videoHeight });
+      v.onerror = () => bad(new Error('the file would not load: ' + (v.error && v.error.message)));
+      setTimeout(() => bad(new Error('metadata timeout')), 8000);
+    });
+    log('playback metadata: ' + JSON.stringify(meta));
+
+    // seek to the middle and confirm a real frame decodes
+    await new Promise((ok, bad) => {
+      v.onseeked = () => ok();
+      v.onerror = () => bad(new Error('seek failed'));
+      v.currentTime = meta.duration / 2;
+      setTimeout(() => bad(new Error('seek timeout')), 8000);
+    });
+    const probe = document.createElement('canvas');
+    probe.width = 160; probe.height = 90;
+    probe.getContext('2d').drawImage(v, 0, 0, 160, 90);
+    const px = probe.getContext('2d').getImageData(0, 0, 160, 90).data;
+    let sum = 0, min = 255, max = 0;
+    for (let i = 0; i < px.length; i += 4) { sum += px[i]; min = Math.min(min, px[i]); max = Math.max(max, px[i]); }
+    const mean = sum / (px.length / 4);
+    log(`decoded mid frame: mean ${mean.toFixed(1)} min ${min} max ${max}`);
+    document.body.appendChild(probe);
+
+    window.__result = {
+      status: 'ok', geo, codec: res.codec, container: res.container,
+      frames: res.frames, bytes: res.blob.size, seconds: +secs.toFixed(1),
+      meta, decoded: { mean: +mean.toFixed(1), min, max },
+    };
+  } catch (e) {
+    log('FAILED: ' + (e && e.stack || e));
+    window.__result = { status: 'error', message: String(e && e.message || e) };
+  }
+</script></body></html>

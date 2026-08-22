@@ -5,6 +5,7 @@ import { DEV_LABEL, seedLabel, proposeRecipeCode } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
 import { Cross } from './MaterialDetail';
 import { Segmented } from './Instrument';
+import { DevelopClip } from './DevelopClip';
 
 /* ============================================================
    DEVELOP / EXPORT
@@ -92,18 +93,35 @@ export function DevelopExport() {
     ['Burn marks', String(recipe.burns.filter((b) => b.enabled).length)],
   ];
 
+  const moving = specimen?.kind === 'moving';
+
   return (
-    <div className="sheet" role="dialog" aria-modal="true" aria-label="Develop and export">
+    <div
+      className="sheet"
+      data-moving={moving}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Develop and export"
+    >
       <div className="sheet__scrim" onClick={() => dispatch({ type: 'export', open: false })} />
       <div className="sheet__panel">
         <header className="sheet__head">
-          <span className="lbl lbl--wide">Develop</span>
+          <span className="lbl lbl--wide">{moving ? 'Develop the clip' : 'Develop'}</span>
+          {moving ? (
+            <span className="mono mono--dim sheet__sub">
+              {specimen?.name} · {specimen?.width} × {specimen?.height}
+              {specimen?.duration ? ` · ${specimen.duration.toFixed(1)}s` : ''}
+            </span>
+          ) : null}
           <span className="spacer" />
           <button className="icb" type="button" onClick={() => dispatch({ type: 'export', open: false })} aria-label="Close">
             <Cross />
           </button>
         </header>
 
+        {moving ? (
+          <DevelopClip />
+        ) : (
         <div className="sheet__body">
           <div className="sheet__col">
             <Segmented<Fmt>
@@ -169,6 +187,7 @@ export function DevelopExport() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
