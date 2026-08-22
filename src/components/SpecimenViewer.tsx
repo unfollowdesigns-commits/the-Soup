@@ -123,8 +123,13 @@ export function SpecimenViewer({
     frameRef.current = requestAnimationFrame(() => draw());
   }, [draw]);
 
+  /* The time stages build their result up over frames. Once any of them
+     is on, a still has to keep being drawn or the feedback never runs. */
+  const t = recipe.time;
+  const remembering = t.echo > 0 || t.slit > 0 || t.displace > 0 || t.rd > 0;
+
   useEffect(() => {
-    if (specimen?.kind === 'moving') {
+    if (specimen?.kind === 'moving' || (specimen && remembering)) {
       let live = true;
       const t0 = performance.now();
       const loop = () => {
@@ -135,7 +140,7 @@ export function SpecimenViewer({
           if (v) {
             // a clip or the camera
             if (v.readyState >= 2) r.updateSource(v);
-          } else if (specimen.tick) {
+          } else if (specimen?.tick) {
             // a loop the lab draws for itself
             specimen.tick((performance.now() - t0) / 1000);
             r.updateSource(specimen.bitmap as TexImageSource);
@@ -152,7 +157,7 @@ export function SpecimenViewer({
     }
     schedule();
     return () => cancelAnimationFrame(frameRef.current);
-  }, [schedule, view, specimen, draw]);
+  }, [schedule, view, specimen, draw, remembering]);
 
   /* ---- interaction: pan, zoom, split ---- */
   const drag = useRef<{ mode: 'pan' | 'split'; x: number; y: number; px: number; py: number } | null>(null);

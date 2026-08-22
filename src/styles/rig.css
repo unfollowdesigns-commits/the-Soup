@@ -552,3 +552,13 @@
 .clip__phase .mono { font-size: var(--t-nano); }
 .clip__done { font-size: var(--t-nano); color: var(--acid); }
 .clip__error { font-size: var(--t-nano); color: var(--ember); line-height: 1.5; }
+
+/* a sub-heading inside a module: the stage has parts, and they are named */
+.sec-head--sub {
+  margin: var(--s5) 0 var(--s2);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.sec-head--sub .lbl { color: var(--paper); }
+.sec-head--sub .sec-head__line { flex: 1; height: 1px; background: var(--line-soft); }

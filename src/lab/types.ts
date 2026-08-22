@@ -278,6 +278,36 @@ export interface PhotoRecipe {
     tint: [number, number, number];
   };
 
+  /** the engine's memory: feedback, trails, slit-scan, chemistry */
+  time: {
+    echo: number;         /* how much of the last frame survives */
+    decay: number;        /* how fast it gives up */
+    mode: EchoMode;
+    feedZoom: number;     /* the transform the past is read through */
+    feedRot: number;
+    feedShiftX: number;
+    feedShiftY: number;
+    feedHue: number;      /* colour turns a little each trip round the loop */
+    feedGain: number;     /* contrast pushed back in each trip, so the loop
+                             does not low-pass itself into fog */
+
+    slit: number;         /* slit-scan */
+    slitAngle: number;
+    slitSpeed: number;
+    slitWidth: number;
+
+    displace: number;     /* time displacement by brightness */
+    displaceBias: number;
+
+    rd: number;           /* reaction-diffusion over the picture */
+    rdFeed: number;
+    rdKill: number;
+    rdRate: number;
+    rdSteps: number;      /* iterations per frame — how fast it grows */
+    rdSeed: number;       /* how much the photograph drives the chemistry */
+    rdStyle: RDStyle;
+  };
+
   /** output rasterisation: dither, posterise, comb */
   raster: {
     dither: number;
@@ -290,6 +320,8 @@ export interface PhotoRecipe {
 }
 
 export type BlurMode = 'motion' | 'zoom' | 'spin';
+export type EchoMode = 'trail' | 'lighten' | 'darken' | 'difference';
+export type RDStyle = 'etch' | 'dye' | 'relief';
 export type PaperStock = 'fibre' | 'rag' | 'toner' | 'copy';
 
 export type TraceMode = 'boxes' | 'swarm' | 'points' | 'links' | 'type';
@@ -338,6 +370,7 @@ export type LogKind =
   | 'trace'
   | 'sequence'
   | 'raster'
+  | 'time'
   | 'export';
 
 export interface LogEntry {
@@ -389,6 +422,7 @@ export type StageId =
   | 'screen'
   | 'paper'
   | 'raster'
+  | 'time'
   | 'vision';
 
 export interface StageState {

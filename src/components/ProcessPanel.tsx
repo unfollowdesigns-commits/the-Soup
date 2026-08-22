@@ -3,6 +3,8 @@ import { getMaterial, KIND_LABEL } from '../lab/materials';
 import {
   DEV_LABEL,
   BLUR_MODES,
+  ECHO_MODES,
+  RD_STYLES,
   PAPER_STOCKS,
   GLYPH_RAMPS,
   TRACE_COLOURS,
@@ -21,6 +23,8 @@ import {
 import { useDispatch, useLab, useEdit } from '../lab/store';
 import type {
   BlurMode,
+  EchoMode,
+  RDStyle,
   PaperStock,
   BurnMark,
   TraceColour,
@@ -115,6 +119,7 @@ export function ProcessPanel({
       {show('damage') && <DamageModule mod={mod('damage')} />}
       {show('depth') && <DepthModule mod={mod('depth')} />}
       {show('trace') && <TraceModule mod={mod('trace')} />}
+      {show('time') && <TimeModule mod={mod('time')} />}
       {show('sequence') && <SequenceModule mod={mod('sequence')} />}
       {show('blur') && <BlurModule mod={mod('blur')} />}
       {show('screen') && <ScreenModule mod={mod('screen')} />}
@@ -1092,6 +1097,96 @@ function BlurModule({ mod }: { mod: ModProps }) {
         note="Holds the middle still and streaks the frame edge, the way a real pan does."
         {...p('taper', 'Blur Taper')}
       />
+    </Module>
+  );
+}
+
+/* ---------------- TIME ----------------
+   The engine's memory. Everything else here computes one frame from
+   nothing; these four run on what was on screen a moment ago. */
+function TimeModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const t = recipe.time;
+  const p = (k: keyof typeof t, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, time: { ...r.time, [k]: v } }), 'time', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  const set = <K extends keyof typeof t>(k: K, v: (typeof t)[K], title: string, detail: string) =>
+    once((r) => ({ ...r, time: { ...r.time, [k]: v } }), 'time', title, detail);
+
+  return (
+    <Module title="Time" {...mod} accent="blue">
+      <p className="instr__note">
+        The only stage that knows what the last frame looked like. It runs on a
+        still as well as a clip — feedback builds up while you watch.
+      </p>
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Echo</span><span className="sec-head__line" /></h4>
+      <Segmented<EchoMode>
+        value={t.mode}
+        options={ECHO_MODES.map((m) => ({ id: m.id, label: m.label, title: m.note }))}
+        onChange={(v) => set('mode', v, 'Echo', ECHO_MODES.find((m) => m.id === v)!.label)}
+      />
+      <p className="instr__note">{ECHO_MODES.find((m) => m.id === t.mode)!.note}</p>
+      <Instrument label="Amount" value={t.echo} {...p('echo', 'Echo')} />
+      <Instrument
+        label="Give up"
+        value={t.decay}
+        max={0.4}
+        step={0.005}
+        note="How fast the trail lets go. At zero it never does."
+        {...p('decay', 'Echo Decay')}
+      />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">The loop</span><span className="sec-head__line" /></h4>
+      <p className="instr__note">
+        The past is read back through a transform. A fraction of a zoom and a
+        fraction of a degree is the whole of video feedback — it is why a camera
+        pointed at its own monitor makes tunnels.
+      </p>
+      <Instrument label="Zoom per trip" value={t.feedZoom} min={-0.08} max={0.08} step={0.001} bipolar format={(v) => v.toFixed(3)} {...p('feedZoom', 'Feedback Zoom')} />
+      <Instrument label="Turn per trip" value={t.feedRot} min={-0.06} max={0.06} step={0.001} bipolar format={(v) => `${((v * 180) / Math.PI).toFixed(1)}°`} {...p('feedRot', 'Feedback Turn')} />
+      <Instrument label="Drift across" value={t.feedShiftX} min={-0.02} max={0.02} step={0.0005} bipolar format={(v) => v.toFixed(4)} {...p('feedShiftX', 'Feedback Drift X')} />
+      <Instrument label="Drift down" value={t.feedShiftY} min={-0.02} max={0.02} step={0.0005} bipolar format={(v) => v.toFixed(4)} {...p('feedShiftY', 'Feedback Drift Y')} />
+      <Instrument label="Push" value={t.feedGain} min={-0.1} max={0.4} step={0.005} bipolar note="Contrast put back on every trip. Without it the loop blurs itself into fog; too much and it burns out." {...p('feedGain', 'Feedback Push')} />
+      <Instrument label="Colour turn" value={t.feedHue} min={-0.3} max={0.3} step={0.005} bipolar note="Rotates the hue a little on every trip round the loop." {...p('feedHue', 'Feedback Hue')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Slit-scan</span><span className="sec-head__line" /></h4>
+      <p className="instr__note">
+        A band crosses the frame. Behind it you see the moment it went past, so
+        the picture stops being one instant and becomes time drawn across space.
+      </p>
+      <Instrument label="Amount" value={t.slit} {...p('slit', 'Slit-scan')} />
+      <Instrument label="Angle" value={t.slitAngle} min={0} max={Math.PI} step={0.01} format={(v) => `${Math.round((v * 180) / Math.PI)}°`} {...p('slitAngle', 'Slit Angle')} />
+      <Instrument label="Speed" value={t.slitSpeed} min={0.05} max={4} step={0.05} format={(v) => v.toFixed(2)} {...p('slitSpeed', 'Slit Speed')} />
+      <Instrument label="Band width" value={t.slitWidth} min={0.005} max={0.4} step={0.005} format={(v) => v.toFixed(3)} {...p('slitWidth', 'Slit Width')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Time displacement</span><span className="sec-head__line" /></h4>
+      <Instrument
+        label="Amount"
+        value={t.displace}
+        note="Each pixel reads a different distance into the past, set by its own brightness. Highlights lag; shadows keep up."
+        {...p('displace', 'Time Displacement')}
+      />
+      <Instrument label="Which way" value={t.displaceBias} note="Move it past the middle to swap which end of the scale lags." {...p('displaceBias', 'Displacement Bias')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Chemistry</span><span className="sec-head__line" /></h4>
+      <p className="instr__note">
+        Gray-Scott reaction-diffusion, fed by the photograph itself: the feed and
+        kill rates are pushed around by the picture's own brightness, so the
+        pattern grows out of the image rather than sitting on top of it.
+      </p>
+      <Segmented<RDStyle>
+        value={t.rdStyle}
+        options={RD_STYLES.map((m) => ({ id: m.id, label: m.label, title: m.note }))}
+        onChange={(v) => set('rdStyle', v, 'Chemistry', RD_STYLES.find((m) => m.id === v)!.label)}
+      />
+      <Instrument label="Amount" value={t.rd} {...p('rd', 'Chemistry')} />
+      <Instrument label="Feed" value={t.rdFeed} min={0.01} max={0.09} step={0.001} format={(v) => v.toFixed(3)} note="Below about 0.03 it starves; above 0.07 it floods." {...p('rdFeed', 'Feed Rate')} />
+      <Instrument label="Kill" value={t.rdKill} min={0.03} max={0.075} step={0.0005} format={(v) => v.toFixed(4)} {...p('rdKill', 'Kill Rate')} />
+      <Instrument label="Growth" value={t.rdSteps} min={1} max={60} step={1} format={(v) => `${v.toFixed(0)} / frame`} {...p('rdSteps', 'Growth')} />
+      <Instrument label="Led by the picture" value={t.rdSeed} note="How hard the photograph drives the chemistry. At zero it grows on its own." {...p('rdSeed', 'Chemistry Seed')} />
     </Module>
   );
 }

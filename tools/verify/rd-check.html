@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8"><title>rd</title>
+<style>body{margin:0;background:#111;color:#ddd;font:12px monospace;padding:10px}canvas{border:1px solid #444;margin:4px;image-rendering:pixelated}</style></head>
+<body><pre id="log"></pre><div id="out"></div>
+<script type="module">
+import { FRAG_RD, VERT } from '/src/engine/glsl.ts';
+const log = s => document.getElementById('log').textContent += s + '\n';
+window.__result = { status: 'running' };
+try {
+  const W = 256, H = 176;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const gl = cv.getContext('webgl2');
+  gl.getExtension('EXT_color_buffer_float');
+  const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FRAG_RD));
+  gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+
+  const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,W,H,0,gl.RGBA,gl.HALF_FLOAT,null);
+    for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);
+    for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return { t, f }; };
+  const A = mk(), B = mk();
+
+  // a plain grey source so the picture cannot be blamed
+  const src = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, src);
+  const px = new Uint8Array(W*H*4);
+  for (let i=0;i<W*H;i++){ const v = 90 + 90*Math.sin(i%W/26); px[i*4]=px[i*4+1]=px[i*4+2]=v; px[i*4+3]=255; }
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,px);
+  for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);
+
+  const u = n => gl.getUniformLocation(pr, n);
+  gl.useProgram(pr);
+
+  const readB = () => { const buf = new Float32Array(W*H*4);
+    gl.readPixels(0,0,W,H,gl.RGBA,gl.FLOAT,buf);
+    let mn=9, mx=-9, sum=0; for (let i=1;i<buf.length;i+=4){ mn=Math.min(mn,buf[i]); mx=Math.max(mx,buf[i]); sum+=buf[i]; }
+    return { min:+mn.toFixed(4), max:+mx.toFixed(4), mean:+(sum/(W*H)).toFixed(4) }; };
+
+  const runs = {};
+  for (const [name, rate, feed, kill] of [['rate1.0',1.0,0.037,0.0605],['rate0.6',0.6,0.037,0.0605],['coral',1.0,0.0545,0.062]]) {
+    let idx = 0;
+    for (let i=0;i<1200;i++){
+      const s = idx===0?A:B, d = idx===0?B:A;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, d.f); gl.viewport(0,0,W,H);
+      gl.useProgram(pr);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, s.t); gl.uniform1i(u('uState'),0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, src); gl.uniform1i(u('uSrc'),1);
+      gl.uniform2f(u('uRes'), W, H);
+      gl.uniform1f(u('uFeed'), feed); gl.uniform1f(u('uKill'), kill);
+      gl.uniform1f(u('uRate'), rate); gl.uniform1f(u('uSeedFrom'), 0.0);
+      gl.uniform1f(u('uReset'), i===0?1:0);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      idx = 1-idx;
+      if (i===0 || i===200 || i===600 || i===1199) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, d.f);
+        runs[name+'@'+i] = readB();
+      }
+    }
+    // show it
+    gl.bindFramebuffer(gl.FRAMEBUFFER, (idx===0?A:B).f);
+    const buf = new Float32Array(W*H*4); gl.readPixels(0,0,W,H,gl.RGBA,gl.FLOAT,buf);
+    const out = document.createElement('canvas'); out.width=W; out.height=H;
+    const id = out.getContext('2d').createImageData(W,H);
+    for (let i=0;i<W*H;i++){ const v = Math.max(0,Math.min(1,buf[i*4+1]))*255;
+      id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=v; id.data[i*4+3]=255; }
+    out.getContext('2d').putImageData(id,0,0);
+    document.getElementById('out').appendChild(out);
+    const c = document.createElement('span'); c.textContent = ' ' + name + ' ';
+    document.getElementById('out').appendChild(c);
+    log(name + ' ' + JSON.stringify(runs[name+'@1199']));
+  }
+  window.__result = { status:'ok', runs };
+} catch(e) { log('FAIL '+(e.stack||e)); window.__result={status:'error',message:String(e.message||e)}; }
+</script></body></html>

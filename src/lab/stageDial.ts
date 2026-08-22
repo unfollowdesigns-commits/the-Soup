@@ -24,6 +24,22 @@ export interface Dial {
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export const DIALS: Record<StageId, Dial> = {
+  time: {
+    // the memory dial: how much of the last frame survives into this one
+    get: (r) => clamp01(Math.max(r.time.echo, r.time.slit, r.time.rd, r.time.displace)),
+    set: (r, v) => ({
+      ...r,
+      time:
+        r.time.rd > 0
+          ? { ...r.time, rd: clamp01(v) }
+          : r.time.slit > 0
+            ? { ...r.time, slit: clamp01(v) }
+            : r.time.displace > 0
+              ? { ...r.time, displace: clamp01(v) }
+              : { ...r.time, echo: clamp01(v) },
+    }),
+    wake: 0.62,
+  },
   material: {
     get: () => 1,
     set: (r) => r,

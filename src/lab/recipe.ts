@@ -9,6 +9,8 @@ import type {
   TraceMode,
   BlurMode,
   PaperStock,
+  EchoMode,
+  RDStyle,
 } from './types';
 import { getMaterial, MATERIALS } from './materials';
 
@@ -114,6 +116,31 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
       amount: 0, stock: 'fibre', scale: 420, relief: 0.5, bleed: 0.5,
       deckle: 0, tint: [0.96, 0.94, 0.88],
     },
+    time: {
+      echo: 0,
+      decay: 0.08,
+      mode: 'trail',
+      feedZoom: 0.012,
+      feedRot: 0.004,
+      feedShiftX: 0,
+      feedShiftY: 0,
+      feedHue: 0,
+      feedGain: 0.06,
+      slit: 0,
+      slitAngle: Math.PI / 2,
+      slitSpeed: 1.5,
+      slitWidth: 0.08,
+      displace: 0,
+      displaceBias: 0.5,
+      rd: 0,
+      rdFeed: 0.037,
+      rdKill: 0.06,
+      rdRate: 1,
+      rdSteps: 18,
+      rdSeed: 0.6,
+      rdStyle: 'etch',
+    },
+
     raster: { dither: 0, levels: 0.5, comb: 0, scanline: 0, scanThick: 0.4, scanRoll: 0 },
   };
 }
@@ -245,6 +272,19 @@ export const PAPER_STOCKS: { id: PaperStock; label: string; file: string; tint: 
   { id: 'copy', label: 'Second copy', file: 'analog/photocopy/toner-2.png', tint: [0.9, 0.9, 0.88] },
 ];
 
+export const ECHO_MODES: { id: EchoMode; label: string; note: string }[] = [
+  { id: 'trail', label: 'Trail', note: 'The ordinary smear. Everything leaves a tail behind it.' },
+  { id: 'lighten', label: 'Lighten', note: 'Light writes and stays. Anything bright paints on the frame and never leaves.' },
+  { id: 'darken', label: 'Darken', note: 'Shadows accumulate. The frame closes down where anything dark has passed.' },
+  { id: 'difference', label: 'Difference', note: 'Only what moved survives. A still frame goes black.' },
+];
+
+export const RD_STYLES: { id: RDStyle; label: string; note: string }[] = [
+  { id: 'etch', label: 'Etch', note: 'The pattern eats into the emulsion.' },
+  { id: 'dye', label: 'Dye', note: 'The chemistry has its own colour and sits in the frame.' },
+  { id: 'relief', label: 'Relief', note: 'Lit from the side, as if it dried raised on the surface.' },
+];
+
 export const TRACE_MODES: { id: TraceMode; label: string; note: string }[] = [
   { id: 'boxes', label: 'Boxes', note: 'One rectangle per tracked region, with its measured values.' },
   { id: 'swarm', label: 'Swarm', note: 'Every region subdivided — a dense field of nested rectangles.' },
@@ -287,6 +327,7 @@ export const STAGE_LABEL: Record<StageId, string> = {
   blur: 'Blur',
   screen: 'Screen',
   paper: 'Paper',
+  time: 'Time',
   vision: 'Vision',
 };
 
@@ -303,6 +344,7 @@ export const STAGE_ORDER: StageId[] = [
   'damage',
   'depth',
   'trace',
+  'time',
   'sequence',
   'blur',
   'screen',
@@ -322,6 +364,15 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
   switch (id) {
     case 'material':
       return m.name;
+    case 'time': {
+      const t = r.time;
+      const on: string[] = [];
+      if (t.rd > 0) on.push('Chemistry');
+      if (t.slit > 0) on.push('Slit');
+      if (t.displace > 0) on.push('Displace');
+      if (t.echo > 0) on.push(ECHO_MODES.find((e) => e.id === t.mode)?.label ?? 'Echo');
+      return on.length ? on.join(' · ') : 'No memory';
+    }
     case 'exposure': {
       const ev = r.exposure.ev;
       return `${ev >= 0 ? '+' : ''}${ev.toFixed(1)} EV`;
@@ -417,6 +468,8 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
   switch (id) {
     case 'material':
       return true;
+    case 'time':
+      return r.time.echo > 0 || r.time.slit > 0 || r.time.displace > 0 || r.time.rd > 0;
     case 'exposure':
       return (
         r.exposure.ev !== 0 ||

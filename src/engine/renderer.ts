@@ -6,6 +6,9 @@ import {
   FRAG_BRIGHT,
   FRAG_COMPOSITE,
   FRAG_DEPTH,
+  FRAG_PRESENT,
+  FRAG_RD,
+  FRAG_TIME,
   VERT,
 } from './glsl';
 
@@ -83,6 +86,17 @@ export class LabRenderer {
   private baseW = 0;
   private baseH = 0;
 
+  /* ---- the engine's memory ----
+     Two canvas-sized buffers the time pass ping-pongs between, and
+     two more at a quarter size holding the reaction-diffusion state.
+     `timeFrames` counts how long the feedback has been running: the
+     chemistry is reseeded whenever the loop is restarted. */
+  private histIdx = 0;
+  private timeFrames = 0;
+  private rdIdx = 0;
+  private rdFrames = 0;
+  private rdKey = '';
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', {
       alpha: true,
@@ -118,6 +132,9 @@ export class LabRenderer {
     this.progs.bright = this.build(VERT, FRAG_BRIGHT, 'bright');
     this.progs.blur = this.build(VERT, FRAG_BLUR, 'blur');
     this.progs.depth = this.build(VERT, FRAG_DEPTH, 'depth');
+    this.progs.time = this.build(VERT, FRAG_TIME, 'time');
+    this.progs.rd = this.build(VERT, FRAG_RD, 'rd');
+    this.progs.present = this.build(VERT, FRAG_PRESENT, 'present');
     this.progs.composite = this.build(VERT, FRAG_COMPOSITE, 'composite');
 
     gl.disable(gl.DEPTH_TEST);
@@ -428,6 +445,14 @@ export class LabRenderer {
     const cw = this.canvas.width;
     const ch = this.canvas.height;
     const map = computeMaps(cw, ch, this.srcW, this.srcH, view);
+    const tmOn = recipe.time;
+    const timeOn =
+      view.compare === 'single' &&
+      view.view === 'color' &&
+      (tmOn.echo > 0 || tmOn.slit > 0 || tmOn.displace > 0 || tmOn.rd > 0);
+    // allocated before the composite binds its samplers: creating a
+    // target binds a texture on whatever unit happens to be active
+    const frameTarget = timeOn ? this.target('frame', cw, ch, true) : null;
 
     {
       const P = 'composite';
@@ -576,15 +601,130 @@ export class LabRenderer {
         d.enabled && d.target.includes('haze') ? d.influence : 0,
       );
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, cw, ch);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      gl.disable(gl.BLEND);
+      if (timeOn) {
+        // the process result goes into a buffer so the time pass can
+        // read it alongside the frame before it
+        this.drawTo(frameTarget, this.progs.composite);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, cw, ch);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.disable(gl.BLEND);
+      }
       passes++;
+    }
+
+    /* ---------- TIME ----------
+       Everything above computes one frame from nothing. This is the
+       part that remembers. */
+    if (timeOn) {
+      const tm = recipe.time;
+      const frame = frameTarget!;
+
+      /* --- reaction-diffusion, at a quarter of the frame so it can
+         run several steps per displayed frame without costing much --- */
+      let rdTex = this.blankTex;
+      if (tm.rd > 0) {
+        const rw = Math.max(8, cw >> 2);
+        const rh = Math.max(8, ch >> 2);
+        const a = this.target('rdA', rw, rh, true);
+        const b = this.target('rdB', rw, rh, true);
+        // restarting the loop, resizing, or changing the seeding rule
+        // means the chemistry starts again from the picture
+        const key = `${rw}x${rh}:${tm.rdSeed.toFixed(2)}`;
+        if (key !== this.rdKey) {
+          this.rdKey = key;
+          this.rdFrames = 0;
+        }
+        const P = 'rd';
+        const steps = Math.max(1, Math.min(64, Math.round(tm.rdSteps)));
+        for (let i = 0; i < steps; i++) {
+          const src = this.rdIdx === 0 ? a : b;
+          const dst = this.rdIdx === 0 ? b : a;
+          gl.useProgram(this.progs.rd);
+          this.bind(P, 'uState', src.tex, 0);
+          this.bind(P, 'uSrc', frame.tex, 1);
+          gl.uniform2f(this.u(P, 'uRes'), rw, rh);
+          gl.uniform1f(this.u(P, 'uFeed'), tm.rdFeed);
+          gl.uniform1f(this.u(P, 'uKill'), tm.rdKill);
+          gl.uniform1f(this.u(P, 'uRate'), tm.rdRate);
+          gl.uniform1f(this.u(P, 'uSeedFrom'), tm.rdSeed);
+          gl.uniform1f(this.u(P, 'uReset'), this.rdFrames === 0 ? 1 : 0);
+          this.drawTo(dst, this.progs.rd);
+          this.rdIdx = 1 - this.rdIdx;
+          this.rdFrames++;
+          passes++;
+        }
+        rdTex = (this.rdIdx === 0 ? a : b).tex;
+      } else {
+        this.rdFrames = 0;
+      }
+
+      /* --- the feedback pass itself --- */
+      const h0 = this.target('histA', cw, ch, true);
+      const h1 = this.target('histB', cw, ch, true);
+      const past = this.histIdx === 0 ? h0 : h1;
+      const cur = this.histIdx === 0 ? h1 : h0;
+
+      {
+        const P = 'time';
+        gl.useProgram(this.progs.time);
+        this.bind(P, 'uNow', frame.tex, 0);
+        // the very first frame has no past; read itself so the loop
+        // starts from the picture rather than from black
+        this.bind(P, 'uPast', this.timeFrames === 0 ? frame.tex : past.tex, 1);
+        this.bind(P, 'uRD', rdTex, 2);
+        gl.uniform2f(this.u(P, 'uRes'), cw, ch);
+        gl.uniform1f(this.u(P, 'uTime'), performance.now() * 0.001);
+        gl.uniform1f(this.u(P, 'uFrame'), this.timeFrames);
+
+        gl.uniform1f(this.u(P, 'uEcho'), tm.echo);
+        gl.uniform1f(this.u(P, 'uDecay'), tm.decay);
+        gl.uniform1f(this.u(P, 'uFeedZoom'), tm.feedZoom);
+        gl.uniform1f(this.u(P, 'uFeedRot'), tm.feedRot);
+        gl.uniform2f(this.u(P, 'uFeedShift'), tm.feedShiftX, tm.feedShiftY);
+        gl.uniform1f(this.u(P, 'uFeedHue'), tm.feedHue);
+        gl.uniform1f(this.u(P, 'uFeedGain'), tm.feedGain);
+        gl.uniform1i(this.u(P, 'uEchoMode'), ECHO_INDEX[tm.mode] ?? 0);
+
+        gl.uniform1f(this.u(P, 'uSlit'), tm.slit);
+        gl.uniform1f(this.u(P, 'uSlitAngle'), tm.slitAngle);
+        gl.uniform1f(this.u(P, 'uSlitSpeed'), tm.slitSpeed);
+        gl.uniform1f(this.u(P, 'uSlitWidth'), Math.max(0.005, tm.slitWidth));
+
+        gl.uniform1f(this.u(P, 'uDisplace'), tm.displace);
+        gl.uniform1f(this.u(P, 'uDisplaceBias'), tm.displaceBias);
+
+        gl.uniform1f(this.u(P, 'uRDMix'), tm.rd);
+        gl.uniform1i(this.u(P, 'uRDStyle'), RD_INDEX[tm.rdStyle] ?? 0);
+
+        this.drawTo(cur, this.progs.time);
+        passes++;
+      }
+
+      /* --- and out to the screen --- */
+      {
+        const P = 'present';
+        gl.useProgram(this.progs.present);
+        this.bind(P, 'uTex', cur.tex, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, cw, ch);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        passes++;
+      }
+
+      this.histIdx = 1 - this.histIdx;
+      this.timeFrames++;
+    } else if (this.timeFrames !== 0) {
+      // the loop was switched off; forget what it had built up
+      this.timeFrames = 0;
+      this.rdFrames = 0;
     }
 
     if (timing && this.pendingQuery) {
@@ -653,6 +793,15 @@ export class LabRenderer {
     if (this.vao) gl.deleteVertexArray(this.vao);
   }
 }
+
+const ECHO_INDEX: Record<string, number> = {
+  trail: 0,
+  lighten: 1,
+  darken: 2,
+  difference: 3,
+};
+
+const RD_INDEX: Record<string, number> = { etch: 0, dye: 1, relief: 2 };
 
 const VIEW_INDEX: Record<ViewMode, number> = {
   color: 0,

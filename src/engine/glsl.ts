@@ -918,3 +918,255 @@ out vec4 outColor;
 uniform sampler2D uTex;
 ${COMMON}
 void main() { outColor = vec4(linearToSrgb(texture(uTex, vUV).rgb), 1.0); }`;
+
+/* ============================================================
+   TIME
+   Until now the engine had no memory: every frame was computed
+   from nothing and thrown away. These three passes give it one.
+
+   A feedback buffer holds the last frame the lab put on screen.
+   The current frame is mixed back into it through a transform —
+   a little zoom, a little rotation, a little drift — which is
+   the whole of video feedback: the reason a camera pointed at
+   its own monitor makes tunnels.
+
+   On top of that buffer:
+     · trails and echo, in four blend behaviours
+     · slit-scan, where a band sweeps the frame and everything
+       behind it is held at the moment the band passed
+     · time displacement, where each pixel reads the past at a
+       depth set by its own brightness
+     · Gray-Scott reaction-diffusion, fed by the picture itself
+   ============================================================ */
+
+export const FRAG_TIME = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 frag;
+
+uniform sampler2D uNow;      /* what the process just produced */
+uniform sampler2D uPast;     /* what was on screen last frame */
+uniform sampler2D uRD;       /* reaction-diffusion state */
+
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uFrame;
+
+/* feedback */
+uniform float uEcho;         /* how much of the past survives */
+uniform float uDecay;        /* how fast it gives up */
+uniform float uFeedZoom;     /* the transform the past is read through */
+uniform float uFeedRot;
+uniform vec2  uFeedShift;
+uniform float uFeedHue;      /* rotate colour on every trip round the loop */
+uniform float uFeedGain;     /* contrast added on every trip — without it
+                                the loop low-passes itself into fog */
+uniform int   uEchoMode;     /* 0 mix · 1 lighten · 2 darken · 3 difference */
+
+/* slit-scan */
+uniform float uSlit;
+uniform float uSlitAngle;
+uniform float uSlitSpeed;
+uniform float uSlitWidth;
+
+/* time displacement */
+uniform float uDisplace;
+uniform float uDisplaceBias;
+
+/* reaction-diffusion */
+uniform float uRDMix;
+uniform int   uRDStyle;      /* 0 etch · 1 dye · 2 relief */
+
+float luma3(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+vec3 hueShift(vec3 c, float a) {
+  const vec3 k = vec3(0.57735);
+  float ca = cos(a);
+  return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca);
+}
+
+void main() {
+  vec2 uv = vUV;
+  vec3 now = texture(uNow, uv).rgb;
+
+  /* ---- read the past through the feedback transform ----
+     A frame that is scaled and turned a fraction of a degree each
+     time round the loop is what builds a tunnel out of nothing. */
+  vec2 c = uv - 0.5;
+  float s = sin(uFeedRot);
+  float co = cos(uFeedRot);
+  c = mat2(co, -s, s, co) * c;
+  c *= (1.0 - uFeedZoom);
+  vec2 puv = c + 0.5 + uFeedShift;
+
+  /* ---- time displacement: each pixel reads a different past ----
+     Brightness decides how far back you look, so highlights lag and
+     shadows keep up, or the other way round. */
+  if (uDisplace > 0.0) {
+    float d = luma3(now) - uDisplaceBias;
+    vec2 dir = normalize(vec2(cos(uSlitAngle), sin(uSlitAngle)) + 1e-6);
+    puv += dir * d * uDisplace * 0.5;
+  }
+
+  vec2 pc = clamp(puv, 0.002, 0.998);
+  vec3 past = texture(uPast, pc).rgb;
+
+  /* Reading the past through a scale is a resample, and a resample is a
+     blur. Left alone the loop low-passes itself into grey fog within a
+     couple of seconds — which is exactly what a feedback rig does when
+     the monitor is out of focus. Putting the edge back on every trip is
+     what makes rings instead of fog. */
+  if (uFeedGain > 0.0) {
+    vec2 t1 = 1.0 / uRes;
+    vec3 soft = (texture(uPast, clamp(pc + vec2(t1.x, 0.0), 0.002, 0.998)).rgb
+               + texture(uPast, clamp(pc - vec2(t1.x, 0.0), 0.002, 0.998)).rgb
+               + texture(uPast, clamp(pc + vec2(0.0, t1.y), 0.002, 0.998)).rgb
+               + texture(uPast, clamp(pc - vec2(0.0, t1.y), 0.002, 0.998)).rgb) * 0.25;
+    past += (past - soft) * uFeedGain * 7.0;
+  }
+
+  past = hueShift(past, uFeedHue);
+  past *= (1.0 - uDecay);
+  past = past + (past - vec3(0.45)) * uFeedGain * 0.5;
+  /* soft ceiling: the loop is allowed to get bright, not to detonate */
+  past = past / (1.0 + max(past - vec3(1.0), vec3(0.0)) * 0.85);
+  past = clamp(past, 0.0, 1.15);
+
+  /* ---- the four ways a trail can behave ----
+     uEcho is the weight the past carries, directly. At 0.9 a tenth of
+     each new frame enters the loop and the rest is what was already
+     going round, which is what builds structure out of nothing. */
+  float e = clamp(uEcho, 0.0, 0.995);
+  vec3 col;
+  if (uEchoMode == 1) {
+    /* lighten: the new frame is dimmed on the way in so the past can
+       actually win somewhere. Light writes and stays. */
+    col = max(now * (1.0 - e * 0.62), past);
+  } else if (uEchoMode == 2) {
+    /* darken: shadows accumulate and the frame closes down */
+    col = min(now + e * 0.42, past + (1.0 - e));
+  } else if (uEchoMode == 3) {
+    /* difference: a still frame goes black; only movement survives */
+    col = mix(now, clamp(abs(now - past) * (1.0 + e * 2.2), 0.0, 4.0), e);
+  } else {
+    col = mix(now, past, e);
+  }
+
+  /* ---- slit-scan ----
+     A band crosses the frame. Ahead of it you see now; behind it you
+     see the moment the band went past. The frame stops being one
+     instant and becomes a graph of time across space. */
+  if (uSlit > 0.0) {
+    vec2 dir = vec2(cos(uSlitAngle), sin(uSlitAngle));
+    float along = dot(uv - 0.5, dir) + 0.5;
+    float head = fract(uTime * uSlitSpeed * 0.14);
+    float d = along - head;
+    d -= floor(d + 0.5);                          /* wrap to -0.5..0.5 */
+    float band = smoothstep(uSlitWidth, 0.0, abs(d));
+    vec3 held = texture(uPast, clamp(puv, 0.001, 0.999)).rgb;
+    col = mix(mix(held, col, band), col, 1.0 - uSlit);
+  }
+
+  /* ---- reaction-diffusion laid over the picture ---- */
+  if (uRDMix > 0.0) {
+    float b = texture(uRD, uv).g;
+    float rdE = smoothstep(0.05, 0.28, b);
+    if (uRDStyle == 0) {
+      col = mix(col, col * (1.0 - rdE * 0.88), uRDMix);           /* etched into the emulsion */
+    } else if (uRDStyle == 1) {
+      vec3 dye = vec3(0.78, 0.94, 0.19) * rdE;                    /* the chemical itself */
+      col = mix(col, col * (1.0 - rdE * 0.55) + dye * 0.95, uRDMix);
+    } else {
+      float gx = texture(uRD, uv + vec2(1.5 / uRes.x, 0.0)).g - texture(uRD, uv - vec2(1.5 / uRes.x, 0.0)).g;
+      float gy = texture(uRD, uv + vec2(0.0, 1.5 / uRes.y)).g - texture(uRD, uv - vec2(0.0, 1.5 / uRes.y)).g;
+      float lift = clamp((gx * 0.6 + gy * 0.8) * 5.0, -1.0, 1.0);
+      col = mix(col, col * (1.0 + lift * 0.85), uRDMix);         /* relief, as if it dried raised */
+    }
+  }
+
+  frag = vec4(max(col, 0.0), 1.0);
+}`;
+
+/* ---- Gray-Scott, fed by the picture ------------------------
+   u is eaten, v grows. The feed rate is pushed around by the
+   brightness of the photograph, so the pattern grows out of the
+   picture rather than sitting on top of it. */
+export const FRAG_RD = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 frag;
+
+uniform sampler2D uState;
+uniform sampler2D uSrc;
+uniform vec2  uRes;
+uniform float uFeed;
+uniform float uKill;
+uniform float uRate;
+uniform float uSeedFrom;   /* how much the picture drives the feed */
+uniform float uReset;
+
+vec2 lap(vec2 uv) {
+  vec2 t = 1.0 / uRes;
+  vec2 s = vec2(0.0);
+  s += texture(uState, uv + vec2(-t.x,  0.0)).rg * 0.2;
+  s += texture(uState, uv + vec2( t.x,  0.0)).rg * 0.2;
+  s += texture(uState, uv + vec2( 0.0, -t.y)).rg * 0.2;
+  s += texture(uState, uv + vec2( 0.0,  t.y)).rg * 0.2;
+  s += texture(uState, uv + vec2(-t.x, -t.y)).rg * 0.05;
+  s += texture(uState, uv + vec2( t.x, -t.y)).rg * 0.05;
+  s += texture(uState, uv + vec2(-t.x,  t.y)).rg * 0.05;
+  s += texture(uState, uv + vec2( t.x,  t.y)).rg * 0.05;
+  return s - texture(uState, uv).rg;
+}
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453);
+}
+
+void main() {
+  vec2 uv = vUV;
+  vec2 ab = texture(uState, uv).rg;
+
+  if (uReset > 0.5) {
+    // seed from the picture's own edges: the pattern starts where the
+    // photograph already has detail
+    // blobs, not single pixels: Gray-Scott grows outward from a seed and
+    // a one-pixel seed dies before it starts
+    vec3 c = texture(uSrc, uv).rgb;
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    vec2 cell = floor(uv * uRes / 9.0);
+    float n = hash(cell);
+    float here = length(fract(uv * uRes / 9.0) - 0.5);
+    float seeded = step(here, 0.34) * step(0.34, n * 0.8 + l * 0.3);
+    frag = vec4(1.0, seeded, 0.0, 1.0);
+    return;
+  }
+
+  /* the picture steers the reaction; it must not be allowed to push it
+     out of the regime where a pattern can form at all, and it must be
+     read blurred or the grain drives it instead of the photograph */
+  vec2 t2 = 2.5 / uRes;
+  vec3 sm = texture(uSrc, uv).rgb * 0.36
+          + texture(uSrc, uv + vec2(t2.x, 0.0)).rgb * 0.16
+          + texture(uSrc, uv - vec2(t2.x, 0.0)).rgb * 0.16
+          + texture(uSrc, uv + vec2(0.0, t2.y)).rgb * 0.16
+          + texture(uSrc, uv - vec2(0.0, t2.y)).rgb * 0.16;
+  float l = dot(sm, vec3(0.2126, 0.7152, 0.0722));
+  float feed = uFeed + (l - 0.5) * 0.0075 * uSeedFrom;
+  float kill = uKill + (0.5 - l) * 0.0038 * uSeedFrom;
+
+  vec2 L = lap(uv);
+  float a = ab.x, b = ab.y;
+  float abb = a * b * b;
+  float na = a + (1.0 * L.x - abb + feed * (1.0 - a)) * uRate;
+  float nb = b + (0.5 * L.y + abb - (kill + feed) * b) * uRate;
+  frag = vec4(clamp(na, 0.0, 1.0), clamp(nb, 0.0, 1.0), 0.0, 1.0);
+}`;
+
+/* ---- present: the last buffer, straight to the screen ---- */
+export const FRAG_PRESENT = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 frag;
+uniform sampler2D uTex;
+void main() { frag = texture(uTex, vUV); }`;

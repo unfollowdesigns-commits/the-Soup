@@ -334,6 +334,91 @@ export const LOOKS: Look[] = [
 ];
 
 /** Build the full recipe a look describes, from any starting recipe. */
+/* ---- looks that use the engine's memory ----
+   These four only make sense once there is a previous frame, so they
+   are the first things in the strip that keep changing while you watch. */
+export const TIME_LOOKS: Look[] = [
+  {
+    id: 'tunnel',
+    name: 'Feedback',
+    note: 'A camera pointed at its own monitor. The frame is fed back through a small zoom and a fraction of a degree, forever.',
+    material: 'kodak-vision3-500t',
+    apply: (r) => {
+      r.exposure.ev = 0.2;
+      r.grain.amount = 0.32;
+      r.halation.intensity = 0.7;
+      r.halation.radius = 0.5;
+      r.time.echo = 0.9;
+      r.time.mode = 'trail';
+      r.time.decay = 0.035;
+      r.time.feedZoom = 0.045;
+      r.time.feedRot = 0.02;
+      r.time.feedHue = 0;
+      r.time.feedGain = 0.1;
+      r.optics.vignette = 0.4;
+    },
+  },
+  {
+    id: 'slit',
+    name: 'Slit-scan',
+    note: 'One band of now crossing a frame of then. The picture becomes a graph of time across space.',
+    material: 'kodak-tri-x',
+    apply: (r) => {
+      r.exposure.contrast = 0.16;
+      r.grain.amount = 0.5;
+      r.time.slit = 0.95;
+      r.time.slitAngle = Math.PI / 2;
+      r.time.slitSpeed = 1.6;
+      r.time.slitWidth = 0.035;
+      r.time.echo = 0.2;
+      r.time.decay = 0.0;
+      r.time.feedZoom = 0;
+      r.time.feedRot = 0;
+    },
+  },
+  {
+    id: 'smear-time',
+    name: 'Time smear',
+    note: 'Highlights lag and shadows keep up, so anything that moves tears itself apart along one axis.',
+    material: 'kodak-portra',
+    apply: (r) => {
+      r.exposure.ev = 0.3;
+      r.grain.amount = 0.3;
+      r.halation.intensity = 0.55;
+      // bias at zero means the displacement runs one way for every pixel,
+      // so the frame drags instead of shimmering about the middle
+      r.time.displace = 0.8;
+      r.time.displaceBias = 0;
+      r.time.echo = 0.72;
+      r.time.decay = 0.05;
+      r.time.feedGain = 0.14;
+      r.time.slitAngle = 0.2;
+      r.time.feedZoom = 0;
+      r.time.feedRot = 0;
+    },
+  },
+  {
+    id: 'culture',
+    name: 'Culture',
+    note: 'Gray-Scott reaction-diffusion fed by the photograph. It grows out of the picture and eats into the emulsion.',
+    material: 'foma-fomapan',
+    apply: (r) => {
+      r.exposure.contrast = 0.1;
+      r.grain.amount = 0.55;
+      r.time.rd = 0.85;
+      r.time.rdStyle = 'etch';
+      r.time.rdFeed = 0.037;
+      r.time.rdKill = 0.0605;
+      r.time.rdSteps = 26;
+      r.time.rdSeed = 0.5;
+      r.experimental.filmSoup = 0.22;
+      r.experimental.soupChemical = 'seawater';
+    },
+  },
+];
+
+LOOKS.push(...TIME_LOOKS);
+
 export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   const next = applyMaterial(structuredClone(base), getMaterial(look.material));
   // start each look from the material's own character, not the last one's
@@ -359,6 +444,7 @@ export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   next.blur = { ...next.blur, amount: 0 };
   next.screen = { ...next.screen, halftone: 0, duotone: 0 };
   next.paper = { ...next.paper, amount: 0 };
+  next.time = { ...next.time, echo: 0, slit: 0, displace: 0, rd: 0 };
 
   look.apply(next);
   return next;

@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="utf-8"><title>time check</title>
+<style>body{margin:0;background:#060606;color:#ddd;font:12px monospace;padding:12px}
+canvas{border:1px solid #333;margin:4px}</style></head>
+<body><pre id="log"></pre><div id="out"></div>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe } from '/src/lab/recipe.ts';
+  import { applyLook, LOOKS } from '/src/lab/looks.ts';
+  import { makeHouseMotion } from '/src/lab/motion.ts';
+
+  const log = s => document.getElementById('log').textContent += s + '\n';
+  window.__result = { status: 'running' };
+  const VIEW = { zoom:1, panX:0, panY:0, compare:'single', split:0.5, view:'color' };
+
+  const stats = (cv) => {
+    const c = document.createElement('canvas'); c.width=80; c.height=50;
+    const g = c.getContext('2d'); g.drawImage(cv, 0, 0, 80, 50);
+    const d = g.getImageData(0,0,80,50).data;
+    let sum=0, sq=0, n=0;
+    for (let i=0;i<d.length;i+=4){ const l=(d[i]*0.2126+d[i+1]*0.7152+d[i+2]*0.0722); sum+=l; sq+=l*l; n++; }
+    const mean=sum/n; return { mean:+mean.toFixed(2), sd:+Math.sqrt(sq/n-mean*mean).toFixed(2) };
+  };
+  const diff = (a,b) => { let s=0; for(let i=0;i<a.length;i+=4) s+=Math.abs(a[i]-b[i]); return s/(a.length/4); };
+  const grab = (cv) => { const c=document.createElement('canvas'); c.width=80;c.height=50;
+    const g=c.getContext('2d'); g.drawImage(cv,0,0,80,50); return g.getImageData(0,0,80,50).data; };
+
+  try {
+    const m = makeHouseMotion(800, 533);
+    const canvas = document.createElement('canvas');
+    canvas.width = 480; canvas.height = 320;
+    document.getElementById('out').appendChild(canvas);
+    const r = new LabRenderer(canvas);
+    r.setSource(m.canvas, m.width, m.height);
+    r.resize(480, 320, 1);
+    await new Promise(res => setTimeout(res, 350));
+
+    const results = {};
+    for (const id of ['house','tunnel','slit','smear-time','culture']) {
+      const look = LOOKS.find(l => l.id === id);
+      if (!look) { results[id] = 'MISSING LOOK'; continue; }
+      const rec = applyLook(defaultRecipe(), look);
+      const mat = getMaterial(look.material);
+      // 40 frames so the feedback and the chemistry actually build up
+      let first = null, prev = null, drift = 0, evolve = 0;
+      const FR = id === 'culture' ? 160 : 40;
+      for (let i = 0; i < FR; i++) {
+        m.tick(i / 18);
+        r.updateSource(m.canvas);
+        const st = r.render(rec, mat, VIEW);
+        if (i === 8) { first = grab(canvas); }
+        if (i >= 8) { const now = grab(canvas); if (prev) evolve += diff(now, prev); prev = now; }
+        if (i === FR - 1) { drift = diff(prev, first); results[id + ':passes'] = st.passes; }
+        await new Promise(res => requestAnimationFrame(res));
+      }
+      const s = stats(canvas);
+      results[id] = { ...s, frames: FR, evolvePerFrame: +(evolve / (FR - 9)).toFixed(2), drift: +drift.toFixed(2) };
+      const snap = document.createElement('canvas');
+      snap.width = 240; snap.height = 160;
+      snap.getContext('2d').drawImage(canvas, 0, 0, 240, 160);
+      document.getElementById('out').appendChild(snap);
+      const cap = document.createElement('div'); cap.textContent = id; document.getElementById('out').appendChild(cap);
+      log(id + ' ' + JSON.stringify(results[id]) + ' passes=' + results[id+':passes']);
+    }
+    const err = r.gl.getError();
+    log('gl error: ' + err);
+    window.__result = { status: err === 0 ? 'ok' : 'glerror', glError: err, results };
+  } catch (e) {
+    log('FAILED ' + (e.stack || e));
+    window.__result = { status: 'error', message: String(e.message || e) };
+  }
+</script></body></html>
