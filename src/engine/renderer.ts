@@ -7,6 +7,8 @@ import {
   FRAG_COMPOSITE,
   FRAG_DEPTH,
   FRAG_PRESENT,
+  FRAG_SIGNAL,
+  FRAG_WARP,
   FRAG_RD,
   FRAG_TIME,
   VERT,
@@ -135,6 +137,8 @@ export class LabRenderer {
     this.progs.time = this.build(VERT, FRAG_TIME, 'time');
     this.progs.rd = this.build(VERT, FRAG_RD, 'rd');
     this.progs.present = this.build(VERT, FRAG_PRESENT, 'present');
+    this.progs.warp = this.build(VERT, FRAG_WARP, 'warp');
+    this.progs.signal = this.build(VERT, FRAG_SIGNAL, 'signal');
     this.progs.composite = this.build(VERT, FRAG_COMPOSITE, 'composite');
 
     gl.disable(gl.DEPTH_TEST);
@@ -445,14 +449,28 @@ export class LabRenderer {
     const cw = this.canvas.width;
     const ch = this.canvas.height;
     const map = computeMaps(cw, ch, this.srcW, this.srcH, view);
+    const wp = recipe.warp;
+    const sg = recipe.signal;
+    const plainView = view.compare === 'single' && view.view === 'color';
+    const warpOn = plainView && wp.amount > 0;
+    const signalOn =
+      plainView &&
+      (sg.crt > 0 || sg.vhs > 0 || sg.tracking > 0 || sg.dropout > 0 || sg.glitch > 0 ||
+        sg.quantise > 0 || sg.sort > 0 || sg.splitAmount > 0 || sg.tilt > 0 ||
+        sg.temperature !== 0 || sg.tint !== 0 || sg.vibrance !== 0 || sg.hue !== 0 ||
+        sg.isolate > 0 || sg.clarity !== 0);
     const tmOn = recipe.time;
     const timeOn =
       view.compare === 'single' &&
       view.view === 'color' &&
       (tmOn.echo > 0 || tmOn.slit > 0 || tmOn.displace > 0 || tmOn.rd > 0);
+    /* anything after the composite means the composite goes to a buffer */
+    const postOn = timeOn || warpOn || signalOn;
     // allocated before the composite binds its samplers: creating a
     // target binds a texture on whatever unit happens to be active
-    const frameTarget = timeOn ? this.target('frame', cw, ch, true) : null;
+    const frameTarget = postOn ? this.target('frame', cw, ch, true) : null;
+    const postA = postOn ? this.target('postA', cw, ch, true) : null;
+    const postB = postOn ? this.target('postB', cw, ch, true) : null;
 
     {
       const P = 'composite';
@@ -601,9 +619,9 @@ export class LabRenderer {
         d.enabled && d.target.includes('haze') ? d.influence : 0,
       );
 
-      if (timeOn) {
-        // the process result goes into a buffer so the time pass can
-        // read it alongside the frame before it
+      if (postOn) {
+        // the process result goes into a buffer so the passes after it
+        // have something to read
         this.drawTo(frameTarget, this.progs.composite);
       } else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -618,12 +636,86 @@ export class LabRenderer {
       passes++;
     }
 
+    /* ---------- WARP AND SIGNAL ----------
+       Geometry first, then the grade and the display it ends up on.
+       Both are skipped entirely when they are doing nothing, so a plain
+       recipe costs exactly what it cost before they existed. */
+    let post = frameTarget;
+    if (warpOn && postA) {
+      const P = 'warp';
+      gl.useProgram(this.progs.warp);
+      this.bind(P, 'uTex', post!.tex, 0);
+      gl.uniform2f(this.u(P, 'uRes'), cw, ch);
+      gl.uniform1f(this.u(P, 'uTime'), performance.now() * 0.001);
+      gl.uniform1i(this.u(P, 'uMode'), WARP_INDEX[wp.mode] ?? 0);
+      gl.uniform1f(this.u(P, 'uAmount'), wp.amount);
+      gl.uniform1f(this.u(P, 'uScale'), wp.scale);
+      gl.uniform1f(this.u(P, 'uPhase'), wp.phase);
+      gl.uniform2f(this.u(P, 'uCentre'), wp.cx, wp.cy);
+      gl.uniform1f(this.u(P, 'uDrift'), wp.drift);
+      gl.uniform1f(this.u(P, 'uEdge'), EDGE_INDEX[wp.edge] ?? 0);
+      this.drawTo(postA, this.progs.warp);
+      post = postA;
+      passes++;
+    }
+    if (signalOn && postB) {
+      const dst = post === postB ? postA! : postB;
+      const P = 'signal';
+      gl.useProgram(this.progs.signal);
+      this.bind(P, 'uTex', post!.tex, 0);
+      gl.uniform2f(this.u(P, 'uRes'), cw, ch);
+      gl.uniform1f(this.u(P, 'uTime'), performance.now() * 0.001);
+      gl.uniform1f(this.u(P, 'uSeed'), (sg.seed % 4096) * 0.2971);
+      gl.uniform1f(this.u(P, 'uTemp'), sg.temperature);
+      gl.uniform1f(this.u(P, 'uTint'), sg.tint);
+      gl.uniform1f(this.u(P, 'uVibrance'), sg.vibrance);
+      gl.uniform1f(this.u(P, 'uHue'), sg.hue);
+      gl.uniform1f(this.u(P, 'uIsolate'), sg.isolate);
+      gl.uniform1f(this.u(P, 'uIsolateHue'), sg.isolateHue);
+      gl.uniform1f(this.u(P, 'uIsolateWidth'), Math.max(0.01, sg.isolateWidth));
+      gl.uniform3fv(this.u(P, 'uSplitShadow'), sg.splitShadow);
+      gl.uniform3fv(this.u(P, 'uSplitHigh'), sg.splitHigh);
+      gl.uniform1f(this.u(P, 'uSplitAmount'), sg.splitAmount);
+      gl.uniform1f(this.u(P, 'uClarity'), sg.clarity);
+      gl.uniform1f(this.u(P, 'uTilt'), sg.tilt);
+      gl.uniform1f(this.u(P, 'uTiltAngle'), sg.tiltAngle);
+      gl.uniform1f(this.u(P, 'uTiltWidth'), sg.tiltWidth);
+      gl.uniform1f(this.u(P, 'uTiltCentre'), sg.tiltCentre);
+      gl.uniform1f(this.u(P, 'uCrt'), sg.crt);
+      gl.uniform1f(this.u(P, 'uCrtPitch'), sg.crtPitch);
+      gl.uniform1f(this.u(P, 'uCrtBend'), sg.crtBend);
+      gl.uniform1f(this.u(P, 'uVhs'), sg.vhs);
+      gl.uniform1f(this.u(P, 'uTracking'), sg.tracking);
+      gl.uniform1f(this.u(P, 'uDropout'), sg.dropout);
+      gl.uniform1f(this.u(P, 'uGlitch'), sg.glitch);
+      gl.uniform1f(this.u(P, 'uBlock'), sg.block);
+      gl.uniform1f(this.u(P, 'uQuantise'), sg.quantise);
+      gl.uniform1f(this.u(P, 'uSort'), sg.sort);
+      gl.uniform1f(this.u(P, 'uSortThresh'), sg.sortThreshold);
+      this.drawTo(dst, this.progs.signal);
+      post = dst;
+      passes++;
+    }
+
+    /* when nothing remembers, this is the last stop before the screen */
+    if (postOn && !timeOn && post) {
+      const P = 'present';
+      gl.useProgram(this.progs.present);
+      this.bind(P, 'uTex', post.tex, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, cw, ch);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      passes++;
+    }
+
     /* ---------- TIME ----------
        Everything above computes one frame from nothing. This is the
        part that remembers. */
     if (timeOn) {
       const tm = recipe.time;
-      const frame = frameTarget!;
+      const frame = post!;
 
       /* --- reaction-diffusion, at a quarter of the frame so it can
          run several steps per displayed frame without costing much --- */
@@ -793,6 +885,13 @@ export class LabRenderer {
     if (this.vao) gl.deleteVertexArray(this.vao);
   }
 }
+
+const WARP_INDEX: Record<string, number> = {
+  wave: 0, ripple: 1, twirl: 2, pinch: 3, glass: 4, kaleidoscope: 5,
+  mirror: 6, polar: 7, fisheye: 8, shear: 9, tile: 10,
+};
+
+const EDGE_INDEX: Record<string, number> = { hold: 0, wrap: 1, mirror: 2 };
 
 const ECHO_INDEX: Record<string, number> = {
   trail: 0,

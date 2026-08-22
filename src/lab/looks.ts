@@ -419,6 +419,149 @@ export const TIME_LOOKS: Look[] = [
 
 LOOKS.push(...TIME_LOOKS);
 
+/* ---- geometry and signal ----
+   Everything after the emulsion: what happens to the print, and what
+   it ends up being shown on. */
+export const POST_LOOKS: Look[] = [
+  {
+    id: 'tube',
+    name: 'Tube',
+    note: 'A picture on a CRT, photographed off the glass. Phosphor stripes, a bent screen, and the scan line between them.',
+    material: 'kodak-vision3-500t',
+    apply: (r) => {
+      r.exposure.ev = 0.25;
+      r.exposure.contrast = 0.14;
+      r.grain.amount = 0.24;
+      r.halation.intensity = 0.62;
+      r.halation.radius = 0.42;
+      r.signal.crt = 0.78;
+      r.signal.crtPitch = 0.42;
+      r.signal.crtBend = 0.5;
+      r.signal.vibrance = 0.24;
+      r.optics.vignette = 0.42;
+    },
+  },
+  {
+    id: 'tape',
+    name: 'Third generation',
+    note: 'A tape copied off a tape. The chroma has slid off the luma, the tracking will not hold, and the oxide is going.',
+    material: 'kodak-gold',
+    apply: (r) => {
+      r.exposure.contrast = -0.1;
+      r.grain.amount = 0.3;
+      r.signal.vhs = 0.72;
+      r.signal.tracking = 0.4;
+      r.signal.dropout = 0.35;
+      r.signal.quantise = 0.22;
+      r.signal.temperature = 0.14;
+      r.raster.scanline = 0.3;
+      r.raster.scanThick = 0.5;
+    },
+  },
+  {
+    id: 'broken',
+    name: 'Broken file',
+    note: 'Blocks in the wrong place, bright pixels dragged up their own column, and a palette that has given up.',
+    material: 'kodak-ektachrome',
+    apply: (r) => {
+      r.exposure.contrast = 0.2;
+      r.signal.glitch = 0.6;
+      r.signal.block = 0.3;
+      r.signal.sort = 0.7;
+      r.signal.sortThreshold = 0.5;
+      r.signal.quantise = 0.42;
+      r.signal.vibrance = 0.3;
+      r.grain.amount = 0.16;
+    },
+  },
+  {
+    id: 'kaleido',
+    name: 'Kaleidoscope',
+    note: 'The frame folded into segments around its own centre, turning slowly.',
+    material: 'kodak-ektachrome',
+    apply: (r) => {
+      r.exposure.ev = 0.2;
+      r.warp.mode = 'kaleidoscope';
+      r.warp.amount = 1;
+      r.warp.scale = 1.2;
+      r.warp.drift = 0.5;
+      r.warp.edge = 'mirror';
+      r.signal.vibrance = 0.34;
+      r.halation.intensity = 0.4;
+      r.optics.vignette = 0.34;
+    },
+  },
+  {
+    id: 'wet',
+    name: 'Hung wet',
+    note: 'The print still moving on the line. A slow wave across it, and glass in front.',
+    material: 'kodak-portra',
+    apply: (r) => {
+      r.warp.mode = 'glass';
+      r.warp.amount = 0.62;
+      r.warp.scale = 1.4;
+      r.warp.drift = 0.35;
+      r.halation.intensity = 0.5;
+      r.diffusion.bloom = 0.3;
+      r.grain.amount = 0.34;
+      r.experimental.filmSoup = 0.2;
+      r.experimental.soupChemical = 'water';
+    },
+  },
+  {
+    id: 'toy',
+    name: 'Toy camera',
+    note: 'One band in focus and the rest let go, warm, and pulled in at the corners.',
+    material: 'kodak-gold',
+    apply: (r) => {
+      r.signal.tilt = 0.8;
+      r.signal.tiltWidth = 0.12;
+      r.signal.tiltAngle = 0;
+      r.signal.temperature = 0.22;
+      r.signal.vibrance = 0.4;
+      r.signal.clarity = 0.2;
+      r.warp.mode = 'pinch';
+      r.warp.amount = 0.3;
+      r.warp.drift = 0;
+      r.optics.vignette = 0.62;
+      r.grain.amount = 0.38;
+    },
+  },
+  {
+    id: 'onecolour',
+    name: 'One colour',
+    note: 'Everything drained but a single hue, and a cold tone under it.',
+    material: 'kodak-gold',
+    apply: (r) => {
+      r.exposure.contrast = 0.22;
+      r.signal.isolate = 0.92;
+      r.signal.isolateHue = 0.02;
+      r.signal.isolateWidth = 0.08;
+      r.signal.splitAmount = 0.4;
+      r.signal.splitShadow = [0.7, 0.8, 1.05];
+      r.signal.splitHigh = [1.04, 0.96, 0.86];
+      r.grain.amount = 0.46;
+    },
+  },
+  {
+    id: 'inside-out',
+    name: 'Inside out',
+    note: 'The picture wrapped round its own centre. Horizons become circles.',
+    material: 'kodak-ektachrome',
+    apply: (r) => {
+      r.warp.mode = 'polar';
+      r.warp.amount = 1;
+      r.warp.drift = 0.2;
+      r.warp.edge = 'wrap';
+      r.signal.vibrance = 0.28;
+      r.grain.amount = 0.24;
+      r.optics.vignette = 0.3;
+    },
+  },
+];
+
+LOOKS.push(...POST_LOOKS);
+
 /**
  * The stock with nothing done to it: the material's own character and no
  * cook at all. This is the near end of the strength dial.
@@ -453,6 +596,14 @@ export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   next.screen = { ...next.screen, halftone: 0, duotone: 0 };
   next.paper = { ...next.paper, amount: 0 };
   next.time = { ...next.time, echo: 0, slit: 0, displace: 0, rd: 0 };
+  next.warp = { ...next.warp, amount: 0 };
+  next.signal = {
+    ...next.signal,
+    temperature: 0, tint: 0, vibrance: 0, hue: 0, isolate: 0,
+    splitAmount: 0, clarity: 0, tilt: 0,
+    crt: 0, crtBend: 0, vhs: 0, tracking: 0, dropout: 0,
+    glitch: 0, quantise: 0, sort: 0,
+  };
 
   look.apply(next);
   return next;

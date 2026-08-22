@@ -5,6 +5,8 @@ import {
   BLUR_MODES,
   ECHO_MODES,
   RD_STYLES,
+  WARP_MODES,
+  WARP_EDGES,
   PAPER_STOCKS,
   GLYPH_RAMPS,
   TRACE_COLOURS,
@@ -25,6 +27,7 @@ import type {
   BlurMode,
   EchoMode,
   RDStyle,
+  WarpEdge,
   PaperStock,
   BurnMark,
   TraceColour,
@@ -120,6 +123,8 @@ export function ProcessPanel({
       {show('depth') && <DepthModule mod={mod('depth')} />}
       {show('trace') && <TraceModule mod={mod('trace')} />}
       {show('time') && <TimeModule mod={mod('time')} />}
+      {show('warp') && <WarpModule mod={mod('warp')} />}
+      {show('signal') && <SignalModule mod={mod('signal')} />}
       {show('sequence') && <SequenceModule mod={mod('sequence')} />}
       {show('blur') && <BlurModule mod={mod('blur')} />}
       {show('screen') && <ScreenModule mod={mod('screen')} />}
@@ -1187,6 +1192,129 @@ function TimeModule({ mod }: { mod: ModProps }) {
       <Instrument label="Kill" value={t.rdKill} min={0.03} max={0.075} step={0.0005} format={(v) => v.toFixed(4)} {...p('rdKill', 'Kill Rate')} />
       <Instrument label="Growth" value={t.rdSteps} min={1} max={60} step={1} format={(v) => `${v.toFixed(0)} / frame`} {...p('rdSteps', 'Growth')} />
       <Instrument label="Led by the picture" value={t.rdSeed} note="How hard the photograph drives the chemistry. At zero it grows on its own." {...p('rdSeed', 'Chemistry Seed')} />
+    </Module>
+  );
+}
+
+/* ---------------- WARP ----------------
+   Eleven ways of moving the picture around inside its own frame.
+   None of it touches how the emulsion was rendered — this is what
+   happens to the print afterwards. */
+function WarpModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const w = recipe.warp;
+  const p = (k: keyof typeof w, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, warp: { ...r.warp, [k]: v } }), 'warp', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  const here = WARP_MODES.find((m) => m.id === w.mode)!;
+  const round = ['ripple', 'twirl', 'pinch', 'kaleidoscope', 'polar', 'fisheye'].includes(w.mode);
+
+  return (
+    <Module title="Warp" {...mod}>
+      <div className="modegrid">
+        {WARP_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className="modegrid__opt"
+            aria-pressed={w.mode === m.id}
+            title={m.note}
+            onClick={() => once((r) => ({ ...r, warp: { ...r.warp, mode: m.id } }), 'warp', 'Warp', m.label)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="instr__note">{here.note}</p>
+
+      <Instrument label="Amount" value={w.amount} {...p('amount', 'Warp')} />
+      <Instrument
+        label={w.mode === 'kaleidoscope' ? 'Segments' : w.mode === 'tile' ? 'Tiles' : 'Scale'}
+        value={w.scale}
+        min={0.25}
+        max={4}
+        step={0.05}
+        format={(v) => v.toFixed(2)}
+        {...p('scale', 'Warp Scale')}
+      />
+      <Instrument label="Phase" value={w.phase} min={0} max={6.283} step={0.02} format={(v) => `${Math.round((v * 180) / Math.PI)}°`} {...p('phase', 'Warp Phase')} />
+      <Instrument label="Drift" value={w.drift} min={0} max={2} step={0.02} note="How fast it moves on its own. At zero it holds still." {...p('drift', 'Warp Drift')} />
+      {round ? (
+        <>
+          <Instrument label="Centre across" value={w.cx} {...p('cx', 'Warp Centre X')} />
+          <Instrument label="Centre down" value={w.cy} {...p('cy', 'Warp Centre Y')} />
+        </>
+      ) : null}
+
+      <Segmented<WarpEdge>
+        label="At the edge"
+        value={w.edge}
+        options={WARP_EDGES.map((e) => ({ id: e.id, label: e.label, title: e.note }))}
+        onChange={(v) => once((r) => ({ ...r, warp: { ...r.warp, edge: v } }), 'warp', 'Warp Edge', WARP_EDGES.find((e) => e.id === v)!.label)}
+      />
+      <p className="instr__note">{WARP_EDGES.find((e) => e.id === w.edge)!.note}</p>
+    </Module>
+  );
+}
+
+/* ---------------- SIGNAL ----------------
+   The grade, and then whatever the picture ends up being shown on. */
+function SignalModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const g = recipe.signal;
+  const p = (k: keyof typeof g, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, signal: { ...r.signal, [k]: v } }), 'signal', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+
+  return (
+    <Module title="Signal" {...mod} accent="blue">
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Grade</span><span className="sec-head__line" /></h4>
+      <Instrument label="Temperature" value={g.temperature} min={-1} max={1} step={0.01} bipolar note="Cold one way, warm the other. Before anything else touches the colour." {...p('temperature', 'Temperature')} />
+      <Instrument label="Tint" value={g.tint} min={-1} max={1} step={0.01} bipolar note="Green through magenta — the axis a colour head has and a slider usually does not." {...p('tint', 'Tint')} />
+      <Instrument label="Vibrance" value={g.vibrance} min={-1} max={1} step={0.01} bipolar note="Lifts what is already dull and leaves what is already loud." {...p('vibrance', 'Vibrance')} />
+      <Instrument label="Hue turn" value={g.hue} min={-3.14} max={3.14} step={0.02} bipolar format={(v) => `${Math.round((v * 180) / Math.PI)}°`} {...p('hue', 'Hue')} />
+      <Instrument label="Clarity" value={g.clarity} min={-1} max={1} step={0.01} bipolar note="Local contrast. Negative is the old soft-focus filter; positive is the print dodged and burned." {...p('clarity', 'Clarity')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Keep one colour</span><span className="sec-head__line" /></h4>
+      <Instrument label="Amount" value={g.isolate} note="Everything but one hue is drained to grey." {...p('isolate', 'Colour Isolate')} />
+      <Instrument label="Which" value={g.isolateHue} format={(v) => `${Math.round(v * 360)}°`} {...p('isolateHue', 'Isolate Hue')} />
+      <Instrument label="How wide" value={g.isolateWidth} min={0.02} max={0.5} step={0.005} {...p('isolateWidth', 'Isolate Width')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Split tone</span><span className="sec-head__line" /></h4>
+      <Instrument label="Amount" value={g.splitAmount} note="One colour into the shadows, another into the highlights — how a print is toned." {...p('splitAmount', 'Split Tone')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Tilt-shift</span><span className="sec-head__line" /></h4>
+      <Instrument label="Amount" value={g.tilt} note="One band stays sharp and the rest is let go, the way a swung lens does it." {...p('tilt', 'Tilt-shift')} />
+      <Instrument label="Angle" value={g.tiltAngle} min={0} max={3.14} step={0.02} format={(v) => `${Math.round((v * 180) / Math.PI)}°`} {...p('tiltAngle', 'Tilt Angle')} />
+      <Instrument label="Band width" value={g.tiltWidth} min={0.02} max={0.5} step={0.005} {...p('tiltWidth', 'Tilt Width')} />
+      <Instrument label="Where" value={g.tiltCentre} {...p('tiltCentre', 'Tilt Centre')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">The tube</span><span className="sec-head__line" /></h4>
+      <Instrument label="Phosphor mask" value={g.crt} note="Three stripes to a pixel and a scan line between them." {...p('crt', 'CRT')} />
+      <Instrument label="Pitch" value={g.crtPitch} min={0.1} max={2} step={0.02} {...p('crtPitch', 'CRT Pitch')} />
+      <Instrument label="Bend" value={g.crtBend} note="A tube is not flat." {...p('crtBend', 'CRT Bend')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">The tape</span><span className="sec-head__line" /></h4>
+      <Instrument label="Chroma slip" value={g.vhs} note="Colour smeared sideways off the luma, which is what a worn tape actually does." {...p('vhs', 'Chroma Slip')} />
+      <Instrument label="Tracking" value={g.tracking} note="Bands that tear and creep up the picture." {...p('tracking', 'Tracking')} />
+      <Instrument label="Dropout" value={g.dropout} note="The white dashes where the oxide has gone." {...p('dropout', 'Dropout')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Broken</span><span className="sec-head__line" /></h4>
+      <Instrument label="Block shift" value={g.glitch} note="Whole blocks in the wrong place." {...p('glitch', 'Glitch')} />
+      <Instrument label="Block size" value={g.block} {...p('block', 'Block Size')} />
+      <Instrument label="Sort" value={g.sort} note="Bright pixels dragged up their own column. Not a true sort — that needs the whole run at once — but it is what the artefact looks like." {...p('sort', 'Pixel Sort')} />
+      <Instrument label="Sort above" value={g.sortThreshold} {...p('sortThreshold', 'Sort Threshold')} />
+      <Instrument label="Palette" value={g.quantise} note="Down to a handful of levels per channel." {...p('quantise', 'Quantise')} />
+
+      <SeedField
+        label="Seed"
+        seed={g.seed}
+        onSeed={(v) => once((r) => ({ ...r, signal: { ...r.signal, seed: v } }), 'signal', 'Signal Seed', seedLabel(v))}
+      />
     </Module>
   );
 }

@@ -1,0 +1,91 @@
+<!doctype html><html><head><meta charset="utf-8"><title>new effects</title>
+<style>body{margin:0;background:#060606;color:#ddd;font:11px monospace;padding:10px}
+figure{display:inline-block;margin:0 6px 6px 0}canvas{display:block;border:1px solid #333}
+figcaption{padding-top:3px;color:#c6c2b8}</style></head>
+<body><pre id="log"></pre><div id="out"></div>
+<script type="module">
+import { LabRenderer } from '/src/engine/renderer.ts';
+import { getMaterial } from '/src/lab/materials.ts';
+import { defaultRecipe, WARP_MODES } from '/src/lab/recipe.ts';
+import { applyLook, LOOKS } from '/src/lab/looks.ts';
+import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+const log = s => document.getElementById('log').textContent += s + '\n';
+window.__result = { status:'running' };
+const VIEW = { zoom:1, panX:0, panY:0, compare:'single', split:0.5, view:'color' };
+const stat = (cv) => { const c=document.createElement('canvas'); c.width=64;c.height=42;
+  c.getContext('2d').drawImage(cv,0,0,64,42);
+  const d=c.getContext('2d').getImageData(0,0,64,42).data; let s=0,q=0,n=0;
+  for(let i=0;i<d.length;i+=4){const l=d[i]*.2126+d[i+1]*.7152+d[i+2]*.0722;s+=l;q+=l*l;n++;}
+  const m=s/n; return {mean:+m.toFixed(1), sd:+Math.sqrt(q/n-m*m).toFixed(1)}; };
+const px = (cv) => { const c=document.createElement('canvas'); c.width=64;c.height=42;
+  c.getContext('2d').drawImage(cv,0,0,64,42); return c.getContext('2d').getImageData(0,0,64,42).data; };
+const diff = (a,b)=>{let s=0;for(let i=0;i<a.length;i+=4)s+=Math.abs(a[i]-b[i]);return +(s/(a.length/4)).toFixed(2)};
+const show = (cv, name) => { const f=document.createElement('figure');
+  const c=document.createElement('canvas'); c.width=220; c.height=147;
+  c.getContext('2d').drawImage(cv,0,0,220,147);
+  const cap=document.createElement('figcaption'); cap.textContent=name;
+  f.appendChild(c); f.appendChild(cap); document.getElementById('out').appendChild(f); };
+try {
+  const sp = makeHouseSpecimen('window', 1200, 800);
+  const swatch = makeHouseSpecimen('target', 1200, 800);   // primaries, for the grade
+  const cv = document.createElement('canvas'); cv.width=440; cv.height=294;
+  const r = new LabRenderer(cv);
+  r.setSource(sp.canvas, sp.width, sp.height); r.resize(440,294,1);
+  await new Promise(res=>setTimeout(res,350));
+
+  const base = defaultRecipe(); base.material='kodak-portra';
+  const mat = getMaterial(base.material);
+  r.render(base, mat, VIEW);
+  const flat = px(cv); const flatStat = stat(cv);
+  show(cv,'no effect'); log('flat '+JSON.stringify(flatStat));
+
+  const results = {};
+  // every warp mode
+  for (const m of WARP_MODES) {
+    const rec = structuredClone(base);
+    rec.warp = { ...rec.warp, mode: m.id, amount: 0.85, scale: 1.4, drift: 0, phase: 1.1 };
+    r.render(rec, mat, VIEW);
+    results['warp:'+m.id] = { ...stat(cv), fromFlat: diff(px(cv), flat) };
+    show(cv, 'warp '+m.label);
+  }
+  // each signal control on its own
+  const sig = [
+    ['crt', {crt:0.8, crtBend:0.5}], ['vhs', {vhs:0.8}], ['tracking', {tracking:0.7}],
+    ['dropout', {dropout:0.8}], ['glitch', {glitch:0.7, block:0.3}], ['sort', {sort:0.8, sortThreshold:0.45}],
+    ['quantise', {quantise:0.7}], ['tilt', {tilt:0.9, tiltWidth:0.1}], ['split', {splitAmount:0.9}],
+    ['isolate', {isolate:0.95, isolateHue:0.05}], ['clarity', {clarity:0.8}],
+    ['temperature', {temperature:0.8}], ['tint', {tint:-0.8}], ['vibrance', {vibrance:0.9}], ['hue', {hue:1.6}],
+  ];
+  const colourful = ['isolate','split','temperature','tint','vibrance','hue','quantise'];
+  let onSwatch = false;
+  let flatSwatch = null;
+  for (const [name, patch] of sig) {
+    const wantColour = colourful.includes(name);
+    if (wantColour !== onSwatch) {
+      r.setSource(wantColour ? swatch.canvas : sp.canvas, 1200, 800);
+      onSwatch = wantColour;
+      if (wantColour && !flatSwatch) { r.render(base, mat, VIEW); flatSwatch = px(cv); show(cv, 'swatch, no effect'); }
+    }
+    const rec = structuredClone(base);
+    rec.signal = { ...rec.signal, ...patch };
+    r.render(rec, mat, VIEW);
+    results['signal:'+name] = { ...stat(cv), fromFlat: diff(px(cv), wantColour ? flatSwatch : flat) };
+    show(cv, name + (wantColour ? ' (swatch)' : ''));
+  }
+  r.setSource(sp.canvas, 1200, 800);
+  // the new looks
+  for (const id of ['tube','tape','broken','kaleido','wet','toy','onecolour','inside-out']) {
+    const look = LOOKS.find(l=>l.id===id);
+    if (!look) { results['look:'+id]='MISSING'; continue; }
+    const rec = applyLook(defaultRecipe(), look);
+    r.render(rec, getMaterial(look.material), VIEW);
+    results['look:'+id] = { ...stat(cv), fromFlat: diff(px(cv), flat) };
+    show(cv, look.name);
+  }
+  const err = r.gl.getError();
+  const dead = Object.entries(results).filter(([,v]) => typeof v==='object' && v.fromFlat < 1.5).map(([k])=>k);
+  log('gl error '+err);
+  log('doing nothing: ' + (dead.length ? dead.join(', ') : 'none'));
+  window.__result = { status: err===0 ? 'ok':'glerror', glError: err, count: Object.keys(results).length, dead, results };
+} catch(e) { log('FAIL '+(e.stack||e)); window.__result={status:'error',message:String(e.message||e)}; }
+</script></body></html>

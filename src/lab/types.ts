@@ -278,6 +278,51 @@ export interface PhotoRecipe {
     tint: [number, number, number];
   };
 
+  /** geometry: what happens to the print after it is made */
+  warp: {
+    mode: WarpMode;
+    amount: number;
+    scale: number;
+    phase: number;
+    cx: number;
+    cy: number;
+    drift: number;      /* how much it moves on its own */
+    edge: WarpEdge;
+  };
+
+  /** grading, and then the display it ends up on */
+  signal: {
+    /* grade */
+    temperature: number;
+    tint: number;
+    vibrance: number;
+    hue: number;
+    isolate: number;
+    isolateHue: number;
+    isolateWidth: number;
+    splitShadow: [number, number, number];
+    splitHigh: [number, number, number];
+    splitAmount: number;
+    clarity: number;
+    tilt: number;
+    tiltAngle: number;
+    tiltWidth: number;
+    tiltCentre: number;
+    /* display */
+    crt: number;
+    crtPitch: number;
+    crtBend: number;
+    vhs: number;
+    tracking: number;
+    dropout: number;
+    glitch: number;
+    block: number;
+    quantise: number;
+    sort: number;
+    sortThreshold: number;
+    seed: number;
+  };
+
   /** the engine's memory: feedback, trails, slit-scan, chemistry */
   time: {
     echo: number;         /* how much of the last frame survives */
@@ -321,6 +366,10 @@ export interface PhotoRecipe {
 
 export type BlurMode = 'motion' | 'zoom' | 'spin';
 export type EchoMode = 'trail' | 'lighten' | 'darken' | 'difference';
+export type WarpMode =
+  | 'wave' | 'ripple' | 'twirl' | 'pinch' | 'glass' | 'kaleidoscope'
+  | 'mirror' | 'polar' | 'fisheye' | 'shear' | 'tile';
+export type WarpEdge = 'hold' | 'wrap' | 'mirror';
 export type RDStyle = 'etch' | 'dye' | 'relief';
 export type PaperStock = 'fibre' | 'rag' | 'toner' | 'copy';
 
@@ -371,6 +420,8 @@ export type LogKind =
   | 'sequence'
   | 'raster'
   | 'time'
+  | 'warp'
+  | 'signal'
   | 'export';
 
 export interface LogEntry {
@@ -423,6 +474,8 @@ export type StageId =
   | 'paper'
   | 'raster'
   | 'time'
+  | 'warp'
+  | 'signal'
   | 'vision';
 
 export interface StageState {

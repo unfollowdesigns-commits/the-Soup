@@ -1170,3 +1170,382 @@ in vec2 vUV;
 out vec4 frag;
 uniform sampler2D uTex;
 void main() { frag = texture(uTex, vUV); }`;
+
+/* ============================================================
+   WARP — distortion and geometry
+   Eleven ways of moving the picture around inside its own frame.
+   All of it is a coordinate transform applied to the finished
+   composite, so none of it interferes with how the emulsion was
+   rendered — it is what happens to the print afterwards.
+   ============================================================ */
+
+export const FRAG_WARP = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 frag;
+
+uniform sampler2D uTex;
+uniform vec2  uRes;
+uniform float uTime;
+
+uniform int   uMode;     /* 0 wave 1 ripple 2 twirl 3 pinch 4 glass
+                            5 kaleidoscope 6 mirror 7 polar 8 fisheye
+                            9 shear 10 tile */
+uniform float uAmount;
+uniform float uScale;
+uniform float uPhase;
+uniform vec2  uCentre;
+uniform float uDrift;
+uniform float uEdge;     /* 0 clamp · 1 wrap · 2 mirror at the frame edge */
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
+
+/* value noise, for the glass */
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x),
+    mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x),
+    f.y);
+}
+
+vec2 edgeFix(vec2 uv) {
+  if (uEdge > 1.5) {
+    vec2 m = mod(uv, 2.0);
+    return mix(m, 2.0 - m, step(1.0, m));
+  }
+  if (uEdge > 0.5) return fract(uv);
+  return clamp(uv, 0.0, 1.0);
+}
+
+void main() {
+  float aspect = uRes.x / uRes.y;
+  vec2 uv = vUV;
+  vec2 c = (uv - uCentre) * vec2(aspect, 1.0);
+  float r = length(c);
+  float a = atan(c.y, c.x);
+  float t = uPhase + uTime * uDrift;
+  float k = uAmount;
+  float f = max(0.5, uScale);
+
+  if (uMode == 0) {
+    /* wave — a sine across one axis, the cheapest way to make a
+       photograph look like it was printed on water */
+    uv.x += sin(uv.y * f * 6.2831 + t) * k * 0.06;
+    uv.y += cos(uv.x * f * 4.1 + t * 0.7) * k * 0.02;
+
+  } else if (uMode == 1) {
+    /* ripple — rings out from the centre */
+    float d = sin(r * f * 12.0 - t * 2.0);
+    uv += normalize(c + 1e-6) * d * k * 0.05 / vec2(aspect, 1.0);
+
+  } else if (uMode == 2) {
+    /* twirl — rotation that falls off with radius */
+    float amt = k * 3.2 * exp(-r * f * 1.4);
+    float s = sin(amt), co = cos(amt);
+    c = mat2(co, -s, s, co) * c;
+    uv = c / vec2(aspect, 1.0) + uCentre;
+
+  } else if (uMode == 3) {
+    /* pinch — the frame pulled in towards its centre. The exponent has
+       to start at 1, or a small amount is a huge bulge instead of a
+       small pinch. */
+    float amt = pow(max(r, 1e-4), 1.0 + k * 1.4);
+    uv = normalize(c + 1e-6) * amt / vec2(aspect, 1.0) + uCentre;
+
+  } else if (uMode == 4) {
+    /* glass — refraction through something uneven and slow */
+    vec2 n = vec2(
+      vnoise(uv * f * 5.0 + t * 0.15),
+      vnoise(uv * f * 5.0 + 31.7 - t * 0.11));
+    uv += (n - 0.5) * k * 0.14;
+
+  } else if (uMode == 5) {
+    /* kaleidoscope — the frame folded into f segments */
+    float seg = 6.2831 / max(2.0, floor(f * 6.0));
+    a = mod(a + t * 0.1, seg);
+    a = abs(a - seg * 0.5);
+    uv = vec2(cos(a), sin(a)) * r / vec2(aspect, 1.0) + uCentre;
+    uv = mix(vUV, uv, k);
+
+  } else if (uMode == 6) {
+    /* mirror — one half of the frame, twice */
+    vec2 m = uv;
+    m.x = uCentre.x + abs(m.x - uCentre.x) * (fract(t * 0.05) > 0.5 ? -1.0 : 1.0);
+    m.x = uCentre.x - abs(uv.x - uCentre.x);
+    uv = mix(uv, m, k);
+
+  } else if (uMode == 7) {
+    /* polar — the picture wrapped round its own centre */
+    vec2 p = vec2((a + 3.14159) / 6.2831, pow(r * 1.42, 0.85));
+    uv = mix(uv, fract(p + vec2(t * 0.02, 0.0)), k);
+
+  } else if (uMode == 8) {
+    /* fisheye — a wide lens, or the back of a spoon */
+    float rr = r <= 0.0 ? 0.0 : pow(r, 1.0 + k * 1.4) / max(r, 1e-4);
+    uv = c * rr / vec2(aspect, 1.0) + uCentre;
+
+  } else if (uMode == 9) {
+    /* shear — a scan that slipped, held at an angle */
+    float band = floor(uv.y * f * 22.0);
+    float slip = (hash21(vec2(band, floor(t * 3.0))) - 0.5);
+    uv.x += slip * k * 0.22;
+
+  } else {
+    /* tile — the frame repeated, each one turned a little */
+    float n = max(1.0, floor(f * 4.0));
+    vec2 cell = floor(uv * n);
+    vec2 inner = fract(uv * n);
+    float rot = (hash21(cell + floor(t)) - 0.5) * k * 1.2;
+    vec2 ic = inner - 0.5;
+    float s = sin(rot), co = cos(rot);
+    ic = mat2(co, -s, s, co) * ic;
+    uv = mix(uv, ic + 0.5, k);
+  }
+
+  frag = texture(uTex, edgeFix(uv));
+}`;
+
+/* ============================================================
+   SIGNAL — grading, then the display it ends up on
+   Two halves in one pass because both want the same neighbourhood
+   samples: the grade (white balance, split tone, clarity, the
+   tilt-shift band) and then what a tube or a worn tape does to a
+   picture on the way to your eye.
+   ============================================================ */
+
+export const FRAG_SIGNAL = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 frag;
+
+uniform sampler2D uTex;
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uSeed;
+
+/* ---- grade ---- */
+uniform float uTemp;        /* -1 cold .. +1 warm */
+uniform float uTint;        /* -1 green .. +1 magenta */
+uniform float uVibrance;
+uniform float uHue;
+uniform float uIsolate;     /* keep one hue, drain the rest */
+uniform float uIsolateHue;
+uniform float uIsolateWidth;
+uniform vec3  uSplitShadow;
+uniform vec3  uSplitHigh;
+uniform float uSplitAmount;
+uniform float uClarity;     /* local contrast */
+uniform float uTilt;        /* tilt-shift: everything outside a band goes soft */
+uniform float uTiltAngle;
+uniform float uTiltWidth;
+uniform float uTiltCentre;
+
+/* ---- display ---- */
+uniform float uCrt;
+uniform float uCrtPitch;
+uniform float uCrtBend;
+uniform float uVhs;         /* chroma that has slipped off the luma */
+uniform float uTracking;    /* tearing bands */
+uniform float uDropout;     /* the white dashes of a worn tape */
+uniform float uGlitch;      /* whole blocks in the wrong place */
+uniform float uBlock;
+uniform float uQuantise;    /* down to a small palette */
+uniform float uSort;        /* pixel sort along a threshold */
+uniform float uSortThresh;
+
+float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+float h21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
+
+vec3 hueRot(vec3 c, float a) {
+  const vec3 k = vec3(0.57735);
+  float ca = cos(a);
+  return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca);
+}
+
+vec3 rgb2hsv(vec3 c) {
+  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x);
+}
+
+void main() {
+  vec2 uv = vUV;
+  vec2 texel = 1.0 / uRes;
+
+  /* ---- whole blocks in the wrong place ---- */
+  if (uGlitch > 0.0) {
+    float bs = max(2.0, floor(uBlock * 40.0));
+    vec2 cell = floor(uv * bs);
+    float roll = h21(cell + floor(uTime * 8.0) + uSeed);
+    if (roll < uGlitch * 0.16) {
+      uv.x += (h21(cell * 1.7 + uSeed) - 0.5) * 0.35 * uGlitch;
+      uv.y += (h21(cell * 3.1 + uSeed) - 0.5) * 0.04 * uGlitch;
+    }
+  }
+
+  /* ---- the tape is not tracking ---- */
+  if (uTracking > 0.0) {
+    float band = floor(uv.y * 90.0);
+    float on = step(1.0 - uTracking * 0.22, h21(vec2(band, floor(uTime * 5.0)) + uSeed));
+    uv.x += on * (h21(vec2(band, 7.0) + uSeed) - 0.5) * 0.14 * uTracking;
+    // the picture also creeps up the screen
+    uv.y += uTracking * 0.004 * sin(uTime * 1.7);
+  }
+
+  /* ---- a tube is not flat ---- */
+  if (uCrtBend > 0.0) {
+    vec2 c = uv * 2.0 - 1.0;
+    c *= 1.0 + uCrtBend * 0.09 * vec2(c.y * c.y, c.x * c.x);
+    uv = c * 0.5 + 0.5;
+  }
+
+  /* ---- pixel sort ----
+     Not a true sort — that needs the whole run in one place. This
+     samples along the run and pulls the brightest of a few taps
+     forward, which is what the artefact actually looks like. */
+  vec3 col;
+  if (uSort > 0.0) {
+    vec3 best = texture(uTex, clamp(uv, 0.0, 1.0)).rgb;
+    float bl = lum(best);
+    float reach = uSort * 0.12;
+    for (int i = 1; i <= 8; i++) {
+      float d = float(i) / 8.0;
+      vec3 s = texture(uTex, clamp(uv - vec2(0.0, d * reach), 0.0, 1.0)).rgb;
+      float sl = lum(s);
+      if (sl > uSortThresh && sl > bl) { best = s; bl = sl; }
+    }
+    col = mix(texture(uTex, clamp(uv, 0.0, 1.0)).rgb, best, uSort);
+  } else {
+    col = texture(uTex, clamp(uv, 0.0, 1.0)).rgb;
+  }
+
+  /* ---- chroma that has slipped off the luma ---- */
+  if (uVhs > 0.0) {
+    float off = uVhs * 0.008;
+    float rr = texture(uTex, clamp(uv + vec2(off, 0.0), 0.0, 1.0)).r;
+    float bb = texture(uTex, clamp(uv - vec2(off * 1.4, 0.0), 0.0, 1.0)).b;
+    // a tape smears chroma sideways and keeps luma sharp
+    vec3 smear = vec3(0.0);
+    for (int i = 0; i < 5; i++) {
+      smear += texture(uTex, clamp(uv - vec2(float(i) * off * 0.6, 0.0), 0.0, 1.0)).rgb;
+    }
+    smear /= 5.0;
+    float l = lum(col);
+    vec3 chroma = smear - vec3(lum(smear));
+    col = mix(col, vec3(l) + chroma, uVhs * 0.85);
+    col.r = mix(col.r, rr, uVhs * 0.5);
+    col.b = mix(col.b, bb, uVhs * 0.5);
+  }
+
+  /* ---- clarity: local contrast, from a wide unsharp ---- */
+  if (abs(uClarity) > 0.001) {
+    vec3 soft = vec3(0.0);
+    float w = 0.0;
+    for (int i = -2; i <= 2; i++) {
+      for (int j = -2; j <= 2; j++) {
+        vec2 o = vec2(float(i), float(j)) * texel * 3.0;
+        soft += texture(uTex, clamp(uv + o, 0.0, 1.0)).rgb;
+        w += 1.0;
+      }
+    }
+    soft /= w;
+    col += (col - soft) * uClarity * 2.2;
+  }
+
+  /* ---- tilt-shift: a band in focus, the rest let go ---- */
+  if (uTilt > 0.0) {
+    vec2 d = uv - 0.5;
+    float across = d.x * sin(uTiltAngle) + d.y * cos(uTiltAngle) - (uTiltCentre - 0.5);
+    float out_ = smoothstep(uTiltWidth, uTiltWidth + 0.22, abs(across));
+    if (out_ > 0.001) {
+      vec3 soft = vec3(0.0);
+      float w = 0.0;
+      for (int i = -3; i <= 3; i++) {
+        for (int j = -3; j <= 3; j++) {
+          vec2 o = vec2(float(i), float(j)) * texel * (2.0 + uTilt * 7.0);
+          soft += texture(uTex, clamp(uv + o, 0.0, 1.0)).rgb;
+          w += 1.0;
+        }
+      }
+      col = mix(col, soft / w, out_ * uTilt);
+    }
+  }
+
+  /* ---- grade ---- */
+  if (abs(uTemp) > 0.001 || abs(uTint) > 0.001) {
+    col.r *= 1.0 + uTemp * 0.24;
+    col.b *= 1.0 - uTemp * 0.24;
+    col.g *= 1.0 - uTint * 0.14;
+    col.r *= 1.0 + uTint * 0.06;
+    col.b *= 1.0 + uTint * 0.06;
+  }
+  if (abs(uHue) > 0.001) col = hueRot(col, uHue);
+
+  if (abs(uVibrance) > 0.001) {
+    float l = lum(col);
+    float sat = max(max(col.r, col.g), col.b) - min(min(col.r, col.g), col.b);
+    // vibrance lifts what is already dull and leaves what is already loud
+    col = mix(vec3(l), col, 1.0 + uVibrance * (1.0 - sat) * 1.6);
+  }
+
+  if (uIsolate > 0.0) {
+    vec3 hsv = rgb2hsv(clamp(col, 0.0, 1.0));
+    float d = abs(hsv.x - uIsolateHue);
+    d = min(d, 1.0 - d);
+    float keep = 1.0 - smoothstep(uIsolateWidth * 0.5, uIsolateWidth, d);
+    col = mix(mix(vec3(lum(col)), col, keep), col, 1.0 - uIsolate);
+  }
+
+  if (uSplitAmount > 0.0) {
+    float l = clamp(lum(col), 0.0, 1.0);
+    vec3 tint = mix(uSplitShadow, uSplitHigh, smoothstep(0.18, 0.82, l));
+    col = mix(col, col * tint * 1.35, uSplitAmount);
+  }
+
+  /* ---- down to a small palette ---- */
+  if (uQuantise > 0.0) {
+    float steps = mix(64.0, 3.0, clamp(uQuantise, 0.0, 1.0));
+    col = mix(col, floor(clamp(col, 0.0, 1.0) * steps + 0.5) / steps, min(1.0, uQuantise * 1.6));
+  }
+
+  /* ---- the phosphor mask ---- */
+  if (uCrt > 0.0) {
+    float pitch = max(1.5, uCrtPitch * 6.0);
+    float sub = mod(gl_FragCoord.x, pitch * 3.0) / (pitch * 3.0);
+    vec3 mask = vec3(
+      smoothstep(0.5, 0.0, abs(sub - 0.166)),
+      smoothstep(0.5, 0.0, abs(sub - 0.5)),
+      smoothstep(0.5, 0.0, abs(sub - 0.833)));
+    mask = mix(vec3(1.0), mask * 2.1, uCrt);
+    float line = 0.82 + 0.18 * sin(gl_FragCoord.y * 3.14159 / pitch);
+    col *= mask * mix(1.0, line, uCrt);
+    // a tube is brighter than its own mask, so put some of it back
+    col *= 1.0 + uCrt * 0.22;
+  }
+
+  /* ---- the white dashes of a worn tape ---- */
+  if (uDropout > 0.0) {
+    float row = floor(uv.y * 220.0);
+    float t = floor(uTime * 12.0);
+    float hit = step(1.0 - uDropout * 0.13, h21(vec2(row, t) + uSeed));
+    float run = h21(vec2(row * 3.7, t) + uSeed);
+    float x0 = h21(vec2(row * 5.1, t) + uSeed);
+    float on = hit * step(x0, uv.x) * step(uv.x, x0 + 0.03 + run * 0.16);
+    col = mix(col, vec3(0.92, 0.92, 0.88), on);
+  }
+
+  frag = vec4(max(col, 0.0), 1.0);
+}`;

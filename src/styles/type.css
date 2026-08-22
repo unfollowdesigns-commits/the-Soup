@@ -633,3 +633,24 @@
 
 .plain[data-bare='true'] .plain__top,
 .plain[data-bare='true'] .plain__foot { opacity: 0; pointer-events: none; }
+
+/* a grid of modes, for the stages that are a choice of eleven things
+   rather than a row of two */
+.modegrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: var(--s2) 0;
+  background: rgba(8, 8, 8, 0.22);
+  border: 1px solid rgba(8, 8, 8, 0.22);
+}
+.modegrid__opt {
+  padding: var(--s2) var(--s2);
+  background: var(--blue);
+  font-family: var(--f-display);
+  font-size: var(--t-tiny);
+  font-weight: 500;
+  color: rgba(8, 8, 8, 0.7);
+}
+.modegrid__opt:hover { background: var(--blue-lift); color: var(--ink); }
+.modegrid__opt[aria-pressed='true'] { background: var(--ink); color: var(--blue); font-weight: 600; }

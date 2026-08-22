@@ -40,6 +40,26 @@ export const DIALS: Record<StageId, Dial> = {
     }),
     wake: 0.62,
   },
+  warp: {
+    get: (r) => clamp01(r.warp.amount),
+    set: (r, v) => ({ ...r, warp: { ...r.warp, amount: clamp01(v) } }),
+    wake: 0.4,
+  },
+  signal: {
+    get: (r) =>
+      clamp01(Math.max(r.signal.crt, r.signal.vhs, r.signal.glitch, r.signal.quantise,
+        r.signal.sort, r.signal.tilt, r.signal.splitAmount)),
+    set: (r, v) => ({
+      ...r,
+      signal:
+        r.signal.vhs > 0
+          ? { ...r.signal, vhs: clamp01(v) }
+          : r.signal.glitch > 0
+            ? { ...r.signal, glitch: clamp01(v) }
+            : { ...r.signal, crt: clamp01(v) },
+    }),
+    wake: 0.55,
+  },
   material: {
     get: () => 1,
     set: (r) => r,

@@ -11,6 +11,8 @@ import type {
   PaperStock,
   EchoMode,
   RDStyle,
+  WarpMode,
+  WarpEdge,
 } from './types';
 import { getMaterial, MATERIALS } from './materials';
 
@@ -116,6 +118,47 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
       amount: 0, stock: 'fibre', scale: 420, relief: 0.5, bleed: 0.5,
       deckle: 0, tint: [0.96, 0.94, 0.88],
     },
+    warp: {
+      mode: 'wave',
+      amount: 0,
+      scale: 1,
+      phase: 0,
+      cx: 0.5,
+      cy: 0.5,
+      drift: 0.3,
+      edge: 'hold',
+    },
+
+    signal: {
+      temperature: 0,
+      tint: 0,
+      vibrance: 0,
+      hue: 0,
+      isolate: 0,
+      isolateHue: 0.03,
+      isolateWidth: 0.1,
+      splitShadow: [0.72, 0.82, 1.0],
+      splitHigh: [1.0, 0.9, 0.74],
+      splitAmount: 0,
+      clarity: 0,
+      tilt: 0,
+      tiltAngle: 0,
+      tiltWidth: 0.14,
+      tiltCentre: 0.5,
+      crt: 0,
+      crtPitch: 0.5,
+      crtBend: 0,
+      vhs: 0,
+      tracking: 0,
+      dropout: 0,
+      glitch: 0,
+      block: 0.4,
+      quantise: 0,
+      sort: 0,
+      sortThreshold: 0.55,
+      seed: 4021,
+    },
+
     time: {
       echo: 0,
       decay: 0.08,
@@ -272,6 +315,26 @@ export const PAPER_STOCKS: { id: PaperStock; label: string; file: string; tint: 
   { id: 'copy', label: 'Second copy', file: 'analog/photocopy/toner-2.png', tint: [0.9, 0.9, 0.88] },
 ];
 
+export const WARP_MODES: { id: WarpMode; label: string; note: string }[] = [
+  { id: 'wave', label: 'Wave', note: 'A sine across the frame. The print, hung wet.' },
+  { id: 'ripple', label: 'Ripple', note: 'Rings out from a point, as if something was dropped in it.' },
+  { id: 'twirl', label: 'Twirl', note: 'Rotation that falls off with distance from the centre.' },
+  { id: 'pinch', label: 'Pinch', note: 'Pulled into the centre, or pushed out of it. One control, both directions.' },
+  { id: 'glass', label: 'Glass', note: 'Refraction through something uneven and slow-moving.' },
+  { id: 'kaleidoscope', label: 'Kaleidoscope', note: 'The frame folded into segments around its centre.' },
+  { id: 'mirror', label: 'Mirror', note: 'One half of the picture, twice.' },
+  { id: 'polar', label: 'Polar', note: 'The picture wrapped round its own centre. Horizons become circles.' },
+  { id: 'fisheye', label: 'Fisheye', note: 'A very wide lens, or the back of a spoon.' },
+  { id: 'shear', label: 'Shear', note: 'Scan lines that slipped sideways and held there.' },
+  { id: 'tile', label: 'Tile', note: 'The frame repeated in a grid, each one turned a little.' },
+];
+
+export const WARP_EDGES: { id: WarpEdge; label: string; note: string }[] = [
+  { id: 'hold', label: 'Hold', note: 'The edge pixel smears outward.' },
+  { id: 'wrap', label: 'Wrap', note: 'What leaves one side comes back on the other.' },
+  { id: 'mirror', label: 'Mirror', note: 'The frame reflects at its own edge.' },
+];
+
 export const ECHO_MODES: { id: EchoMode; label: string; note: string }[] = [
   { id: 'trail', label: 'Trail', note: 'The ordinary smear. Everything leaves a tail behind it.' },
   { id: 'lighten', label: 'Lighten', note: 'Light writes and stays. Anything bright paints on the frame and never leaves.' },
@@ -328,6 +391,8 @@ export const STAGE_LABEL: Record<StageId, string> = {
   screen: 'Screen',
   paper: 'Paper',
   time: 'Time',
+  warp: 'Warp',
+  signal: 'Signal',
   vision: 'Vision',
 };
 
@@ -345,6 +410,8 @@ export const STAGE_ORDER: StageId[] = [
   'depth',
   'trace',
   'time',
+  'warp',
+  'signal',
   'sequence',
   'blur',
   'screen',
@@ -364,6 +431,24 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
   switch (id) {
     case 'material':
       return m.name;
+    case 'warp': {
+      const w = r.warp;
+      if (w.amount <= 0) return 'Flat';
+      return `${WARP_MODES.find((m) => m.id === w.mode)?.label ?? w.mode} · ${w.amount.toFixed(2)}`;
+    }
+    case 'signal': {
+      const g = r.signal;
+      const on: string[] = [];
+      if (g.crt > 0) on.push('CRT');
+      if (g.vhs > 0 || g.tracking > 0 || g.dropout > 0) on.push('Tape');
+      if (g.glitch > 0 || g.sort > 0) on.push('Broken');
+      if (g.quantise > 0) on.push('Palette');
+      if (g.splitAmount > 0) on.push('Split tone');
+      if (g.tilt > 0) on.push('Tilt');
+      if (g.temperature !== 0 || g.tint !== 0 || g.vibrance !== 0 || g.hue !== 0 || g.isolate > 0 || g.clarity !== 0)
+        on.push('Graded');
+      return on.length ? on.join(' · ') : 'Straight through';
+    }
     case 'time': {
       const t = r.time;
       const on: string[] = [];
@@ -468,6 +553,17 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
   switch (id) {
     case 'material':
       return true;
+    case 'warp':
+      return r.warp.amount > 0;
+    case 'signal': {
+      const g = r.signal;
+      return (
+        g.crt > 0 || g.vhs > 0 || g.tracking > 0 || g.dropout > 0 || g.glitch > 0 ||
+        g.quantise > 0 || g.sort > 0 || g.splitAmount > 0 || g.tilt > 0 ||
+        g.temperature !== 0 || g.tint !== 0 || g.vibrance !== 0 || g.hue !== 0 ||
+        g.isolate > 0 || g.clarity !== 0
+      );
+    }
     case 'time':
       return r.time.echo > 0 || r.time.slit > 0 || r.time.displace > 0 || r.time.rd > 0;
     case 'exposure':
