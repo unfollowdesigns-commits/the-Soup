@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Instrument, Segmented } from '../components/Instrument';
 import { Cross } from '../components/MaterialDetail';
+import { openCamera } from '../lab/camera';
 import { useDispatch, useLab } from '../lab/store';
 import { LightRig, type Light, type LightView, type RigReport } from './lightRig';
 import './light.css';
@@ -38,6 +39,23 @@ export function LightBench() {
   const [params, setParams] = useState({
     ambient: 0.42, normalZ: 14, shadow: 0.5, parallax: 0, exposure: 1,
   });
+  const [camState, setCamState] = useState<'idle' | 'opening' | 'error'>('idle');
+  const [camError, setCamError] = useState('');
+
+  const live = specimen?.kind === 'moving';
+
+  const goLive = useCallback(async () => {
+    setCamState('opening');
+    setCamError('');
+    try {
+      const cam = await openCamera();
+      dispatch({ type: 'specimen', specimen: cam });
+      setCamState('idle');
+    } catch (e) {
+      setCamState('error');
+      setCamError(e instanceof Error ? e.message : String(e));
+    }
+  }, [dispatch]);
 
   /* ---- start the rig ---- */
   useEffect(() => {
@@ -96,6 +114,19 @@ export function LightBench() {
         </button>
         <span className="spacer" />
         <span className="lbl lbl--wide">Light</span>
+        <span className="rig__sep" />
+        <span className="light__live" data-on={live}>
+          <span className="lamp" data-state={live ? 'on' : 'off'} />
+          <span className="mono">{live ? 'LIVE' : 'STILL'}</span>
+        </span>
+        <button
+          className={`btn btn--sm ${live ? '' : 'btn--primary'}`}
+          type="button"
+          disabled={camState === 'opening'}
+          onClick={() => void goLive()}
+        >
+          {camState === 'opening' ? 'Opening…' : live ? 'Restart camera' : 'Go live'}
+        </button>
         <span className="spacer" />
         <Segmented<LightView> value={view} options={VIEWS} onChange={setView} />
         <button className="icb" type="button" aria-label="Close" onClick={() => dispatch({ type: 'screen', screen: 'lab' })}>
@@ -127,6 +158,13 @@ export function LightBench() {
               <i>{i + 1}</i>
             </span>
           ))}
+
+          {camState === 'error' ? (
+            <div className="light__camerr">
+              <span className="lbl lbl--amber">Camera</span>
+              <span className="mono">{camError}</span>
+            </div>
+          ) : null}
 
           {dead ? (
             <div className="light__dead">

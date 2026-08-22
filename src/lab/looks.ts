@@ -44,6 +44,99 @@ export const LOOKS: Look[] = [
     },
   },
   {
+    id: 'press',
+    name: 'Press',
+    note: 'Four plates at press angles. Grey pulled into black, rosettes where the colour is.',
+    material: 'kodak-gold',
+    apply: (r) => {
+      r.exposure.contrast = 0.18;
+      r.grain.amount = 0.2;
+      r.halation.intensity = 0.2;
+      r.screen.halftone = 1;
+      r.screen.halfSize = 8;
+      r.screen.halfColour = true;
+      r.paper.amount = 0.6;
+      r.paper.stock = 'fibre';
+      r.paper.deckle = 0.4;
+      r.optics.vignette = 0.16;
+    },
+  },
+  {
+    id: 'riso',
+    name: 'Riso',
+    note: 'Two inks, off register, soaked into rough stock.',
+    material: 'kodak-plus-x',
+    apply: (r) => {
+      r.exposure.contrast = 0.3;
+      r.grain.amount = 0.34;
+      r.screen.halftone = 0.85;
+      r.screen.halfSize = 6;
+      r.screen.halfAngle = 0.6;
+      r.screen.duotone = 0.9;
+      r.screen.duoDark = [0.07, 0.13, 0.52];
+      r.screen.duoLight = [0.99, 0.88, 0.3];
+      r.paper.amount = 0.75;
+      r.paper.stock = 'rag';
+      r.paper.bleed = 0.8;
+      r.paper.deckle = 0.5;
+      // the second pass never lands quite on the first
+      r.optics.chromatic = 0.34;
+    },
+  },
+  {
+    id: 'smear',
+    name: 'Smear',
+    note: 'The camera moved during the exposure and the shutter stayed open.',
+    material: 'kodak-vision3-500t',
+    apply: (r) => {
+      r.exposure.ev = 0.4;
+      r.blur.amount = 0.62;
+      r.blur.mode = 'motion';
+      r.blur.angle = 0.16;
+      r.blur.taper = 0.5;
+      r.grain.amount = 0.5;
+      r.halation.intensity = 0.6;
+      r.halation.radius = 0.5;
+      r.diffusion.bloom = 0.3;
+      r.optics.vignette = 0.34;
+    },
+  },
+  {
+    id: 'pull',
+    name: 'Zoom Pull',
+    note: 'The lens racked through the frame while it was open.',
+    material: 'super-8-color',
+    apply: (r) => {
+      r.blur.amount = 0.72;
+      r.blur.mode = 'zoom';
+      r.blur.taper = 0.75;
+      r.grain.amount = 0.62;
+      r.halation.intensity = 0.5;
+      r.experimental.lightLeak = 0.24;
+      r.optics.vignette = 0.42;
+    },
+  },
+  {
+    id: 'photocopy',
+    name: 'Photocopy',
+    note: 'Run through the machine twice. Toner where the light was not.',
+    material: 'ilford-hp5',
+    apply: (r) => {
+      r.exposure.contrast = 0.5;
+      r.exposure.shadows = -0.3;
+      r.grain.amount = 0.24;
+      r.halation.intensity = 0;
+      r.raster.dither = 0.9;
+      r.raster.levels = 0.92;
+      r.paper.amount = 0.9;
+      r.paper.stock = 'copy';
+      r.paper.scale = 240;
+      r.paper.relief = 0.3;
+      r.paper.bleed = 0.9;
+      r.experimental.dust = 0.3;
+    },
+  },
+  {
     id: 'trix-push',
     name: 'Tri-X / Push +2',
     note: 'Reportage. Contrast up, grain structural, printed hard.',

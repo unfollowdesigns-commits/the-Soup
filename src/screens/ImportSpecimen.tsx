@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { AnalogSurface } from '../analog/AnalogSurface';
 import { makeHouseSpecimen, type HouseSpecimen } from '../lab/specimens';
 import { makeHouseMotion } from '../lab/motion';
+import { openCamera } from '../lab/camera';
 import { useDispatch, useLab } from '../lab/store';
 import type { Specimen } from '../lab/types';
 
@@ -84,54 +85,17 @@ export function ImportSpecimen() {
      Live capture is just a moving specimen: the same engine runs
      on every frame, so every look, every cook and the trace layer
      work on it exactly as they do on a file. */
-  const openCamera = useCallback(async () => {
+  /* ---- the camera ----------------------------------------
+     Live capture is just a moving specimen: the same engine runs
+     on every frame, so every look, every cook and the trace layer
+     work on it exactly as they do on a file. */
+  const startCamera = useCallback(async () => {
     setError(null);
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('This browser will not hand over a camera.');
-      return;
-    }
     setOpening(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      await new Promise<void>((res, rej) => {
-        video.onloadedmetadata = () => res();
-        video.onerror = () => rej(new Error('no signal'));
-      });
-      await video.play();
-      dispatch({
-        type: 'specimen',
-        specimen: {
-          id: `cam-${Date.now().toString(36)}`,
-          name: 'Camera',
-          source: 'camera',
-          kind: 'moving',
-          width: video.videoWidth,
-          height: video.videoHeight,
-          bitmap: video,
-          video,
-          stream,
-          importedAt: Date.now(),
-          note: 'Live. Every look runs on it frame by frame.',
-        },
-      });
+      dispatch({ type: 'specimen', specimen: await openCamera() });
     } catch (e) {
-      const name = e instanceof DOMException ? e.name : '';
-      setError(
-        name === 'NotAllowedError'
-          ? 'The camera was refused. Allow it in the address bar and try again.'
-          : name === 'NotFoundError'
-            ? 'No camera on this machine.'
-            : !window.isSecureContext
-              ? 'A camera needs https or localhost. This page is neither.'
-              : 'The camera would not open.',
-      );
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setOpening(false);
     }
@@ -244,7 +208,7 @@ export function ImportSpecimen() {
             className="camcard"
             type="button"
             disabled={opening}
-            onClick={() => void openCamera()}
+            onClick={() => void startCamera()}
           >
             <span className="camcard__eye" aria-hidden="true">
               <span />
