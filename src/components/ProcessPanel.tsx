@@ -2,6 +2,8 @@ import { Fragment, useState } from 'react';
 import { getMaterial, KIND_LABEL } from '../lab/materials';
 import {
   DEV_LABEL,
+  BLUR_MODES,
+  PAPER_STOCKS,
   GLYPH_RAMPS,
   TRACE_COLOURS,
   TRACE_MODES,
@@ -18,6 +20,8 @@ import {
 } from '../lab/recipe';
 import { useDispatch, useLab, useEdit } from '../lab/store';
 import type {
+  BlurMode,
+  PaperStock,
   BurnMark,
   TraceColour,
   TraceMode,
@@ -112,6 +116,9 @@ export function ProcessPanel({
       {show('depth') && <DepthModule mod={mod('depth')} />}
       {show('trace') && <TraceModule mod={mod('trace')} />}
       {show('sequence') && <SequenceModule mod={mod('sequence')} />}
+      {show('blur') && <BlurModule mod={mod('blur')} />}
+      {show('screen') && <ScreenModule mod={mod('screen')} />}
+      {show('paper') && <PaperModule mod={mod('paper')} />}
       {show('raster') && <RasterModule mod={mod('raster')} />}
       {show('vision') && <VisionModule mod={mod('vision')} />}
     </>
@@ -897,6 +904,13 @@ function RasterModule({ mod }: { mod: ModProps }) {
       />
       <Instrument label="Scan comb" value={ra.comb} {...p('comb', 'Scan Comb')} />
       <Instrument label="Scanline" value={ra.scanline} {...p('scanline', 'Scanline')} />
+      <Instrument label="Line thickness" value={ra.scanThick} {...p('scanThick', 'Scan Thickness')} />
+      <Instrument
+        label="Roll bar"
+        value={ra.scanRoll}
+        note="The band that crawls up a screen when a camera is pointed at it."
+        {...p('scanRoll', 'Roll Bar')}
+      />
     </Module>
   );
 }
@@ -1023,6 +1037,151 @@ function VisionModule({ mod }: { mod: ModProps }) {
           </div>
         </>
       ) : null}
+    </Module>
+  );
+}
+
+/* ---------------- BLUR ----------------
+   A camera move, not a soft focus. */
+function BlurModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const b = recipe.blur;
+  const p = (k: keyof typeof b, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, blur: { ...r.blur, [k]: v } }), 'optics', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Blur" {...mod}>
+      <Segmented<BlurMode>
+        value={b.mode}
+        options={BLUR_MODES.map((m) => ({ id: m.id, label: m.label, title: m.note }))}
+        onChange={(v) => once((r) => ({ ...r, blur: { ...r.blur, mode: v } }), 'optics', 'Blur', BLUR_MODES.find((m) => m.id === v)!.label)}
+      />
+      <p className="instr__note">{BLUR_MODES.find((m) => m.id === b.mode)!.note}</p>
+      <Instrument label="Amount" value={b.amount} {...p('amount', 'Blur')} />
+      {b.mode === 'motion' ? (
+        <Instrument
+          label="Direction"
+          value={b.angle}
+          min={0}
+          max={Math.PI}
+          step={0.01}
+          format={(v) => `${Math.round((v * 180) / Math.PI)}°`}
+          {...p('angle', 'Blur Direction')}
+        />
+      ) : (
+        <>
+          <Instrument label="Centre across" value={b.cx} {...p('cx', 'Blur Centre X')} />
+          <Instrument label="Centre down" value={b.cy} {...p('cy', 'Blur Centre Y')} />
+        </>
+      )}
+      <Instrument
+        label="Edge taper"
+        value={b.taper}
+        note="Holds the middle still and streaks the frame edge, the way a real pan does."
+        {...p('taper', 'Blur Taper')}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- SCREEN ---------------- */
+function ScreenModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const c = recipe.screen;
+  const p = (k: keyof typeof c, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, screen: { ...r.screen, [k]: v } }), 'raster', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Screen" {...mod}>
+      <Instrument label="Halftone" value={c.halftone} {...p('halftone', 'Halftone')} />
+      <Instrument
+        label="Ruling"
+        value={c.halfSize}
+        min={2}
+        max={22}
+        step={0.5}
+        format={(v) => `${v.toFixed(1)} px`}
+        {...p('halfSize', 'Halftone Ruling')}
+      />
+      <Instrument
+        label="Angle"
+        value={c.halfAngle}
+        min={0}
+        max={Math.PI / 2}
+        step={0.01}
+        format={(v) => `${Math.round((v * 180) / Math.PI)}°`}
+        {...p('halfAngle', 'Halftone Angle')}
+      />
+      <div className="row row--gap depth__switch">
+        <span className="instr__label">Screens</span>
+        <span className="spacer" />
+        <button
+          className="btn btn--sm"
+          type="button"
+          aria-pressed={c.halfColour}
+          onClick={() => once((r) => ({ ...r, screen: { ...r.screen, halfColour: !r.screen.halfColour } }), 'raster', 'Halftone Screens', c.halfColour ? 'one' : 'three')}
+        >
+          {c.halfColour ? 'Three, at press angles' : 'One, on luminance'}
+        </button>
+      </div>
+      <Instrument
+        label="Duotone"
+        value={c.duotone}
+        note="The whole scale remapped between two inks."
+        {...p('duotone', 'Duotone')}
+      />
+    </Module>
+  );
+}
+
+/* ---------------- PAPER ---------------- */
+function PaperModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const pa = recipe.paper;
+  const p = (k: keyof typeof pa, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, paper: { ...r.paper, [k]: v } }), 'raster', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  return (
+    <Module title="Paper" {...mod}>
+      <div className="chemgrid">
+        {PAPER_STOCKS.map((st) => (
+          <button
+            key={st.id}
+            type="button"
+            className="chem"
+            aria-pressed={pa.stock === st.id}
+            onClick={() =>
+              once((r) => ({ ...r, paper: { ...r.paper, stock: st.id as PaperStock, tint: st.tint } }), 'raster', 'Stock', st.label)
+            }
+          >
+            {st.label}
+          </button>
+        ))}
+      </div>
+      <Instrument label="Amount" value={pa.amount} {...p('amount', 'Paper')} />
+      <Instrument
+        label="Grain of the sheet"
+        value={pa.scale}
+        min={120}
+        max={900}
+        step={10}
+        format={(v) => `${v.toFixed(0)} px`}
+        {...p('scale', 'Paper Scale')}
+      />
+      <Instrument
+        label="Relief"
+        value={pa.relief}
+        note="Light raking across the fibre, taken from the plate's own slope."
+        {...p('relief', 'Paper Relief')}
+      />
+      <Instrument label="Ink in the tooth" value={pa.bleed} {...p('bleed', 'Ink Bleed')} />
+      <Instrument label="Deckle" value={pa.deckle} note="A torn edge, because a sheet has one." {...p('deckle', 'Deckle')} />
     </Module>
   );
 }

@@ -43,6 +43,13 @@ export interface RenderStats {
 
 const MAX_BASE = 2560;
 
+const PAPER_FILES: Record<string, string> = {
+  fibre: 'analog/paper/paper-fibre-1.png',
+  rag: 'analog/paper/paper-fibre-2.png',
+  toner: 'analog/photocopy/toner-1.png',
+  copy: 'analog/photocopy/toner-2.png',
+};
+
 interface Target {
   fbo: WebGLFramebuffer;
   tex: WebGLTexture;
@@ -59,6 +66,10 @@ export class LabRenderer {
 
   private srcTex: WebGLTexture | null = null;
   private damageTex: WebGLTexture | null = null;
+  private paperTex: WebGLTexture | null = null;
+  private blankTex: WebGLTexture | null = null;
+  private paperReady = false;
+  private paperStock = '';
   private damageReady = false;
   private srcW = 0;
   private srcH = 0;
@@ -91,6 +102,17 @@ export class LabRenderer {
     this.timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
 
     this.vao = gl.createVertexArray();
+
+    // a 1x1 mid-grey stands in for any plate that has not loaded yet, so a
+    // sampler is never bound to an incomplete texture
+    this.blankTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.blankTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([128, 128, 128, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
     this.progs.base = this.build(VERT, FRAG_BASE, 'base');
     this.progs.bright = this.build(VERT, FRAG_BRIGHT, 'bright');
@@ -254,6 +276,30 @@ export class LabRenderer {
     }
   }
 
+  /** the paper the print is laid on. Real material — one plate per stock. */
+  private ensurePaper(stock: string) {
+    if (this.paperStock === stock) return;
+    this.paperStock = stock;
+    this.paperReady = false;
+    const file = PAPER_FILES[stock] ?? PAPER_FILES.fibre;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      const gl = this.gl;
+      if (!this.paperTex) this.paperTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.paperTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      // the plates are periodic, so they may repeat without a seam
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      this.paperReady = true;
+    };
+    img.onerror = () => { this.paperReady = false; };
+    img.src = `${import.meta.env.BASE_URL}${file}`;
+  }
+
   get hasDamagePlates() {
     return this.damageReady;
   }
@@ -278,9 +324,14 @@ export class LabRenderer {
     const t0 = performance.now();
     let passes = 0;
 
+    // Only one timer query may be in flight. If the last one has not
+    // resolved we simply do not time this frame — ending a query we never
+    // began raises INVALID_OPERATION every frame and hides real errors.
+    let timing = false;
     if (this.timerExt && !this.pendingQuery) {
       this.pendingQuery = gl.createQuery();
       gl.beginQuery(this.timerExt.TIME_ELAPSED_EXT, this.pendingQuery!);
+      timing = true;
     }
 
     gl.bindVertexArray(this.vao);
@@ -386,7 +437,7 @@ export class LabRenderer {
       this.bind(P, 'uHalo', halo.tex, 2);
       this.bind(P, 'uDiff', diff.tex, 3);
       this.bind(P, 'uDepth', depth.tex, 4);
-      this.bind(P, 'uDamage', this.damageTex, 5);
+      this.bind(P, 'uDamage', this.damageTex ?? this.blankTex, 5);
 
       gl.uniform2f(this.u(P, 'uRes'), cw, ch);
       gl.uniform2f(this.u(P, 'uImgRes'), this.srcW, this.srcH);
@@ -476,11 +527,39 @@ export class LabRenderer {
       gl.uniform1f(this.u(P, 'uSeqDrift'), q.drift);
       gl.uniform1f(this.u(P, 'uSeqGutter'), q.gutter);
 
+      const bl = recipe.blur;
+      gl.uniform1f(this.u(P, 'uBlurAmt'), bl.amount);
+      gl.uniform1f(this.u(P, 'uBlurAngle'), bl.angle);
+      gl.uniform1f(this.u(P, 'uBlurMode'), bl.mode === 'motion' ? 0 : bl.mode === 'zoom' ? 1 : 2);
+      gl.uniform1f(this.u(P, 'uBlurTaper'), bl.taper);
+      gl.uniform2f(this.u(P, 'uBlurCentre'), bl.cx, bl.cy);
+
+      const sc = recipe.screen;
+      gl.uniform1f(this.u(P, 'uHalftone'), sc.halftone);
+      gl.uniform1f(this.u(P, 'uHalfSize'), sc.halfSize);
+      gl.uniform1f(this.u(P, 'uHalfAngle'), sc.halfAngle);
+      gl.uniform1f(this.u(P, 'uHalfColour'), sc.halfColour ? 1 : 0);
+      gl.uniform1f(this.u(P, 'uDuotone'), sc.duotone);
+      gl.uniform3fv(this.u(P, 'uDuoDark'), sc.duoDark);
+      gl.uniform3fv(this.u(P, 'uDuoLight'), sc.duoLight);
+
+      const pa = recipe.paper;
+      this.bind(P, 'uPaper', this.paperReady ? this.paperTex : this.blankTex, 6);
+      gl.uniform1f(this.u(P, 'uPaperAmt'), this.paperReady ? pa.amount : 0);
+      gl.uniform1f(this.u(P, 'uPaperScale'), pa.scale);
+      gl.uniform1f(this.u(P, 'uPaperRelief'), pa.relief);
+      gl.uniform1f(this.u(P, 'uPaperBleed'), pa.bleed);
+      gl.uniform1f(this.u(P, 'uPaperDeckle'), pa.deckle);
+      gl.uniform3fv(this.u(P, 'uPaperTint'), pa.tint);
+      if (pa.amount > 0) this.ensurePaper(pa.stock);
+
       const ra = recipe.raster;
       gl.uniform1f(this.u(P, 'uDither'), ra.dither);
       gl.uniform1f(this.u(P, 'uLevels'), ra.levels);
       gl.uniform1f(this.u(P, 'uComb'), ra.comb);
       gl.uniform1f(this.u(P, 'uScanline'), ra.scanline);
+      gl.uniform1f(this.u(P, 'uScanThick'), ra.scanThick);
+      gl.uniform1f(this.u(P, 'uScanRoll'), ra.scanRoll);
 
       const d = recipe.depth;
       gl.uniform1f(this.u(P, 'uDepthOn'), d.enabled ? 1 : 0);
@@ -508,7 +587,7 @@ export class LabRenderer {
       passes++;
     }
 
-    if (this.timerExt && this.pendingQuery) {
+    if (timing && this.pendingQuery) {
       gl.endQuery(this.timerExt.TIME_ELAPSED_EXT);
       const q = this.pendingQuery;
       queueMicrotask(() => {
@@ -569,6 +648,8 @@ export class LabRenderer {
     Object.values(this.progs).forEach((p) => gl.deleteProgram(p));
     if (this.srcTex) gl.deleteTexture(this.srcTex);
     if (this.damageTex) gl.deleteTexture(this.damageTex);
+    if (this.paperTex) gl.deleteTexture(this.paperTex);
+    if (this.blankTex) gl.deleteTexture(this.blankTex);
     if (this.vao) gl.deleteVertexArray(this.vao);
   }
 }

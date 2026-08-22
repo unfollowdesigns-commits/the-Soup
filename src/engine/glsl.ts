@@ -317,6 +317,19 @@ uniform float uBurnSeed[8];
 
 uniform float uSeqOn, uSeqRows, uSeqCols, uSeqDrift, uSeqGutter;
 uniform float uDither, uLevels, uComb, uScanline;
+uniform float uScanRoll, uScanThick;
+uniform float uHalftone, uHalfSize, uHalfAngle, uHalfColour;
+uniform float uDuotone;
+uniform vec3  uDuoDark, uDuoLight;
+
+/* directional blur: 0 motion, 1 zoom, 2 spin */
+uniform float uBlurAmt, uBlurAngle, uBlurMode, uBlurTaper;
+uniform vec2  uBlurCentre;
+
+/* the print itself */
+uniform sampler2D uPaper;
+uniform float uPaperAmt, uPaperScale, uPaperRelief, uPaperBleed, uPaperDeckle;
+uniform vec3  uPaperTint;
 
 uniform float uDepthOn, uDepthInf;
 uniform vec4  uDepthTargets; // grain, halation, diffusion, burn
@@ -356,6 +369,14 @@ float grainField(vec2 fp, float scale, float seed, float clump, float rand) {
   // randomness dissolves the spatial correlation toward pure stochastic noise
   float w = (hash21(floor(p * 2.6) + seed) - 0.5) * 1.9;
   return mix(v, w, clamp(rand, 0.0, 1.0) * 0.4);
+}
+
+/* one ink's dot: a screen at its own angle, area following density */
+float halfDot(vec2 sp, float ang, float density, float fw) {
+  mat2 R = mat2(cos(ang), -sin(ang), sin(ang), cos(ang));
+  vec2 cell = fract(R * sp) - 0.5;
+  float r = sqrt(clamp(density, 0.0, 1.0)) * 0.62;
+  return 1.0 - smoothstep(r - fw, r + fw, length(cell));
 }
 
 /* 4x4 ordered dither matrix */
@@ -444,6 +465,43 @@ void main() {
   col.r = texture(uBase, ouv + pc * ca).r;
   col.g = texture(uBase, ouv).g;
   col.b = texture(uBase, ouv - pc * ca).b;
+
+  /* ================= DIRECTIONAL BLUR =================
+     A real sample loop along a direction, not a symmetric kernel.
+     Motion runs along one angle; zoom and spin take their direction
+     from the pixel's relation to a centre, so the streak lengthens
+     with distance the way a real camera move does. */
+  if (uBlurAmt > 0.001) {
+    vec2 rel = ouv - uBlurCentre;
+    vec2 dir;
+    float len;
+    if (uBlurMode < 0.5) {
+      dir = vec2(cos(uBlurAngle), sin(uBlurAngle));
+      len = uBlurAmt * 0.14;
+    } else if (uBlurMode < 1.5) {
+      dir = normalize(rel + vec2(1e-5));
+      len = uBlurAmt * 0.24 * length(rel);
+    } else {
+      dir = normalize(vec2(-rel.y, rel.x) + vec2(1e-5));
+      len = uBlurAmt * 0.30 * length(rel);
+    }
+    // the frame edge streaks harder than the middle when tapered
+    len *= mix(1.0, smoothstep(0.0, 0.5, length(rel)) * 1.6, uBlurTaper);
+
+    // a per-pixel offset breaks the tap count into grain instead of ghosts
+    float jitter = hash21(ouv * uImgRes) - 0.5;
+    vec3 acc = vec3(0.0);
+    float wsum = 0.0;
+    const int TAPS = 17;
+    for (int i = 0; i < TAPS; i++) {
+      float t = (float(i) + jitter) / float(TAPS - 1) - 0.5;
+      // weight the middle so the subject survives the smear
+      float w = 1.0 - abs(t) * 0.75;
+      acc += texture(uBase, ouv + dir * t * len).rgb * w;
+      wsum += w;
+    }
+    col = acc / max(wsum, EPS);
+  }
 
   vec3 wide = texture(uDiff, ouv).rgb;
   float depth = texture(uDepth, ouv).r;
@@ -704,19 +762,81 @@ void main() {
   float vig = 1.0 - uVignette * smoothstep(0.06, 0.78, r2) * 1.25;
   col *= clamp(vig, 0.0, 1.4);
 
-  /* ================= RASTER =================
-     The output stage: a scan comb, a line structure, and an ordered
-     dither. Bayer rather than random, because a random dither reads
-     as noise and an ordered one reads as print. */
+  /* ================= SCREEN =================
+     The output stage: how the picture is finally laid down.
+     A halftone screen, a duotone, a scan structure and an ordered
+     dither — in that order, because that is the order a press and
+     a monitor actually apply them. */
+
+  // ---- halftone: a rotated dot screen, dot area following density
+  if (uHalftone > 0.0) {
+    float a = uHalfAngle;
+    mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));
+    vec2 sp = rot * (suv * uRes) / max(uHalfSize, 1.5);
+    vec2 cell = fract(sp) - 0.5;
+    float d = length(cell);
+
+    vec3 srgbc = linearToSrgb(col);
+    vec3 screened;
+    if (uHalfColour > 0.5) {
+      // A press lays three screens at different angles and the inks
+      // subtract. Screening R, G and B additively is what produces
+      // confetti instead of rosettes.
+      vec2 sp0 = suv * uRes / max(uHalfSize, 1.5);
+      float fw = fwidth(sp0.x) * 0.9 + 1e-4;
+      // Grey component replacement: the ink all three plates share is
+      // pulled out and printed as black instead. Without it a grey
+      // photograph screens as rainbow confetti rather than as a
+      // photograph, because three colour plates are doing black's job.
+      vec3 ink = 1.0 - srgbc;
+      float k = min(ink.r, min(ink.g, ink.b));
+      vec3 cmy = ink - k;
+
+      float dc = halfDot(sp0, a + 0.2618, cmy.r, fw);   // 15 deg
+      float dm = halfDot(sp0, a + 1.3090, cmy.g, fw);   // 75 deg
+      float dy = halfDot(sp0, a,          cmy.b, fw);   //  0 deg
+      float dk = halfDot(sp0, a + 0.7854, k,     fw);   // 45 deg
+
+      // inks subtract, and black absorbs everything
+      screened = clamp(vec3(1.0 - dc, 1.0 - dm, 1.0 - dy) * (1.0 - dk), 0.0, 1.0);
+    } else {
+      float l = luma(srgbc);
+      float r = sqrt(max(1.0 - l, 0.0)) * 0.62;
+      float fw = fwidth(d) * 1.2 + 1e-4;
+      screened = vec3(1.0 - smoothstep(r - fw, r + fw, d));
+      screened = 1.0 - screened;
+    }
+    col = srgbToLinear(mix(srgbc, screened, uHalftone));
+  }
+
+  // ---- duotone: the whole scale mapped between two inks
+  if (uDuotone > 0.0) {
+    float l = clamp(luma(linearToSrgb(col)), 0.0, 1.0);
+    vec3 duo = mix(uDuoDark, uDuoLight, smoothstep(0.0, 1.0, l));
+    col = mix(col, srgbToLinear(duo), uDuotone);
+  }
+
+  // ---- scan structure: thickness, a roll bar, and interlace
   if (uComb > 0.0) {
     float bars = 0.5 + 0.5 * cos(suv.x * uRes.x * 0.55);
     col *= 1.0 - uComb * 0.55 * bars;
     col += vec3(0.02, 0.03, 0.04) * uComb * (1.0 - bars);
   }
   if (uScanline > 0.0) {
-    float line = 0.5 + 0.5 * cos(suv.y * uRes.y * 1.57);
-    col *= 1.0 - uScanline * 0.4 * line;
+    float pitch = mix(1.0, 3.4, uScanThick);
+    float line = 0.5 + 0.5 * cos(suv.y * uRes.y * (1.57 / pitch));
+    line = pow(line, mix(1.0, 3.0, uScanThick));
+    col *= 1.0 - uScanline * 0.55 * line;
+
+    // the roll bar a camera pointed at a screen picks up
+    if (uScanRoll > 0.0) {
+      float roll = fract(suv.y + uTime * 0.19);
+      float band = smoothstep(0.0, 0.16, roll) * (1.0 - smoothstep(0.16, 0.34, roll));
+      col *= 1.0 - band * uScanRoll * 0.5;
+      col += vec3(0.03, 0.035, 0.045) * band * uScanRoll;
+    }
   }
+
   if (uDither > 0.0) {
     // 4x4 ordered matrix, screen aligned
     vec2 ip = floor(mod(suv * uRes, 4.0));
@@ -730,6 +850,43 @@ void main() {
     c2 += bayer / steps * uDither * 1.4;
     c2 = floor(c2 * steps + 0.5) / steps;
     col = srgbToLinear(mix(linearToSrgb(col), c2, uDither));
+  }
+
+  /* ================= PAPER =================
+     The last thing that happens to a print is the paper. Ink sits
+     down into the tooth, the sheet lifts against the light, and the
+     base colour shows through wherever the ink is thin. The plate is
+     real material — see docs/ANALOG_SYSTEM.md. */
+  if (uPaperAmt > 0.0) {
+    vec2 pscale = uRes / max(uPaperScale, 32.0);
+    vec2 puv = suv * pscale;
+    float tooth = texture(uPaper, puv).r;
+
+    // relief: light across the fibre, taken from the plate's own slope
+    vec2 pt = 1.0 / pscale * 0.6;
+    float hx = texture(uPaper, puv + vec2(pt.x, 0.0)).r
+             - texture(uPaper, puv - vec2(pt.x, 0.0)).r;
+    float hy = texture(uPaper, puv + vec2(0.0, pt.y)).r
+             - texture(uPaper, puv - vec2(0.0, pt.y)).r;
+
+    // ink pools in the low fibre and thins on the high
+    float ink = (tooth - 0.5);
+    col *= 1.0 + ink * uPaperBleed * 1.4 * uPaperAmt;
+
+    // the sheet catches the light from the top left
+    col += vec3(hx * 0.6 - hy * 0.6) * uPaperRelief * uPaperAmt;
+
+    // base colour through the thin ink, strongest in the highlights
+    float hi = smoothstep(0.35, 1.0, luma(col));
+    col = mix(col, col * srgbToLinear(uPaperTint), uPaperAmt * (0.25 + hi * 0.55));
+
+    // a torn edge, because a sheet has one
+    if (uPaperDeckle > 0.0) {
+      float e = min(min(suv.x, 1.0 - suv.x), min(suv.y, 1.0 - suv.y));
+      float rag = fbm(suv * vec2(18.0, 18.0), 3, 0.5) * 0.028 * uPaperDeckle;
+      float edge = smoothstep(0.0, 0.012 + rag, e - rag * 0.4);
+      col = mix(srgbToLinear(uPaperTint) * 0.92, col, edge);
+    }
   }
 
   /* ================= VIEW MODES ================= */

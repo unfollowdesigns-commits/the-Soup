@@ -244,14 +244,51 @@ export interface PhotoRecipe {
     gutter: number;
   };
 
+  /** directional blur — a camera move, not a soft focus */
+  blur: {
+    amount: number;
+    angle: number;        /* radians, motion mode */
+    mode: BlurMode;
+    taper: number;        /* how much harder the edge streaks */
+    cx: number;           /* centre for zoom and spin */
+    cy: number;
+  };
+
+  /** how the picture is finally laid down */
+  screen: {
+    halftone: number;
+    halfSize: number;
+    halfAngle: number;
+    halfColour: boolean;  /* three screens at press angles, or one on luma */
+    duotone: number;
+    duoDark: [number, number, number];
+    duoLight: [number, number, number];
+  };
+
+  /** the sheet it is printed on */
+  paper: {
+    amount: number;
+    stock: PaperStock;
+    scale: number;
+    relief: number;
+    bleed: number;
+    deckle: number;
+    tint: [number, number, number];
+  };
+
   /** output rasterisation: dither, posterise, comb */
   raster: {
     dither: number;
     levels: number;
     comb: number;         /* vertical scan comb */
     scanline: number;
+    scanThick: number;
+    scanRoll: number;
   };
 }
+
+export type BlurMode = 'motion' | 'zoom' | 'spin';
+export type PaperStock = 'fibre' | 'rag' | 'toner' | 'copy';
 
 export type TraceMode = 'boxes' | 'swarm' | 'points' | 'links' | 'type';
 export type TraceColour = 'paper' | 'amber' | 'ice' | 'ember' | 'source';
@@ -346,6 +383,9 @@ export type StageId =
   | 'depth'
   | 'trace'
   | 'sequence'
+  | 'blur'
+  | 'screen'
+  | 'paper'
   | 'raster'
   | 'vision';
 

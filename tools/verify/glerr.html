@@ -1,0 +1,31 @@
+<!doctype html><html><body><canvas id="c" width="320" height="212"></canvas>
+<script type="module">
+import { LabRenderer } from '/src/engine/renderer.ts';
+import { getMaterial } from '/src/lab/materials.ts';
+import { defaultRecipe } from '/src/lab/recipe.ts';
+import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+const out = [];
+try {
+  const spec = makeHouseSpecimen('window', 600, 400);
+  const r = new LabRenderer(document.getElementById('c'));
+  r.setSource(spec.canvas, spec.width, spec.height); r.resize(320,212,1);
+  await new Promise(s=>setTimeout(s,400));
+  const gl = r.gl;
+  const V = {zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'};
+  const step = (label, tune) => {
+    while (gl.getError() !== 0) {}
+    const rec = defaultRecipe('kodak-tri-x'); tune(rec);
+    r.render(rec, getMaterial('kodak-tri-x'), V);
+    out.push([label, gl.getError()]);
+  };
+  step('baseline-1', ()=>{});
+  step('baseline-2', ()=>{});
+  step('baseline-3', ()=>{});
+  step('blur', r0=>{ r0.blur.amount=0.6; });
+  step('halftone', r0=>{ r0.screen.halftone=1; });
+  step('duotone', r0=>{ r0.screen.duotone=0.9; });
+  step('paper', r0=>{ r0.paper.amount=0.8; });
+  step('scanThick', r0=>{ r0.raster.scanline=0.8; r0.raster.scanThick=0.9; });
+  window.__result = { status:'ok', steps: out };
+} catch(e) { window.__result = { status:'error', message:String(e&&e.stack||e).slice(0,900) }; }
+</script></body></html>

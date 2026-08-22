@@ -7,6 +7,8 @@ import type {
   StageId,
   TraceColour,
   TraceMode,
+  BlurMode,
+  PaperStock,
 } from './types';
 import { getMaterial, MATERIALS } from './materials';
 
@@ -102,7 +104,16 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
       cell: 0.62,
     },
     sequence: { enabled: false, rows: 3, cols: 4, drift: 0.3, stamp: true, gutter: 0.3 },
-    raster: { dither: 0, levels: 0.5, comb: 0, scanline: 0 },
+    blur: { amount: 0, angle: 0, mode: 'motion', taper: 0.3, cx: 0.5, cy: 0.5 },
+    screen: {
+      halftone: 0, halfSize: 5, halfAngle: 0.3927, halfColour: false,
+      duotone: 0, duoDark: [0.04, 0.06, 0.16], duoLight: [0.95, 0.94, 0.86],
+    },
+    paper: {
+      amount: 0, stock: 'fibre', scale: 420, relief: 0.5, bleed: 0.5,
+      deckle: 0, tint: [0.96, 0.94, 0.88],
+    },
+    raster: { dither: 0, levels: 0.5, comb: 0, scanline: 0, scanThick: 0.4, scanRoll: 0 },
   };
 }
 
@@ -220,6 +231,19 @@ export const SOUP_TINT: Record<SoupChemical, [number, number, number]> = {
   seawater: [0.36, 0.6, 0.52],
 };
 
+export const BLUR_MODES: { id: BlurMode; label: string; note: string }[] = [
+  { id: 'motion', label: 'Motion', note: 'One direction across the whole frame. A pan, or a subject that moved.' },
+  { id: 'zoom', label: 'Zoom', note: 'Streaks outward from a centre. The lens pulled during the exposure.' },
+  { id: 'spin', label: 'Spin', note: 'Streaks around a centre. The camera turned on its axis.' },
+];
+
+export const PAPER_STOCKS: { id: PaperStock; label: string; file: string; tint: [number, number, number] }[] = [
+  { id: 'fibre', label: 'Fibre', file: 'analog/paper/paper-fibre-1.png', tint: [0.97, 0.95, 0.89] },
+  { id: 'rag', label: 'Rag', file: 'analog/paper/paper-fibre-2.png', tint: [0.98, 0.96, 0.92] },
+  { id: 'toner', label: 'Toner', file: 'analog/photocopy/toner-1.png', tint: [0.94, 0.94, 0.93] },
+  { id: 'copy', label: 'Second copy', file: 'analog/photocopy/toner-2.png', tint: [0.9, 0.9, 0.88] },
+];
+
 export const TRACE_MODES: { id: TraceMode; label: string; note: string }[] = [
   { id: 'boxes', label: 'Boxes', note: 'One rectangle per tracked region, with its measured values.' },
   { id: 'swarm', label: 'Swarm', note: 'Every region subdivided — a dense field of nested rectangles.' },
@@ -259,6 +283,9 @@ export const STAGE_LABEL: Record<StageId, string> = {
   trace: 'Trace',
   sequence: 'Sequence',
   raster: 'Raster',
+  blur: 'Blur',
+  screen: 'Screen',
+  paper: 'Paper',
   vision: 'Vision',
 };
 
@@ -276,6 +303,9 @@ export const STAGE_ORDER: StageId[] = [
   'depth',
   'trace',
   'sequence',
+  'blur',
+  'screen',
+  'paper',
   'raster',
 ];
 
@@ -337,6 +367,21 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
         : 'Off';
     case 'sequence':
       return r.sequence.enabled ? `${r.sequence.rows} × ${r.sequence.cols}` : 'Off';
+    case 'blur':
+      return r.blur.amount > 0
+        ? `${labelOf(BLUR_MODES, r.blur.mode)} ${r.blur.amount.toFixed(2)}`
+        : 'Off';
+    case 'screen': {
+      const a = [
+        r.screen.halftone > 0 && 'Halftone',
+        r.screen.duotone > 0 && 'Duotone',
+      ].filter(Boolean) as string[];
+      return a.length ? a.join(' · ') : 'Off';
+    }
+    case 'paper':
+      return r.paper.amount > 0
+        ? `${labelOf(PAPER_STOCKS, r.paper.stock)} ${r.paper.amount.toFixed(2)}`
+        : 'Off';
     case 'raster': {
       const a = [
         r.raster.dither > 0 && 'Dither',
@@ -407,6 +452,12 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
       return r.trace.enabled;
     case 'sequence':
       return r.sequence.enabled;
+    case 'blur':
+      return r.blur.amount > 0;
+    case 'screen':
+      return r.screen.halftone > 0 || r.screen.duotone > 0;
+    case 'paper':
+      return r.paper.amount > 0;
     case 'raster':
       return r.raster.dither > 0 || r.raster.comb > 0 || r.raster.scanline > 0;
     case 'vision':

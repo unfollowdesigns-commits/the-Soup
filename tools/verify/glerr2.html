@@ -1,0 +1,24 @@
+<!doctype html><html><body><canvas id="c" width="320" height="212"></canvas>
+<script type="module">
+import { LabRenderer } from '/src/engine/renderer.ts';
+import { getMaterial } from '/src/lab/materials.ts';
+import { defaultRecipe } from '/src/lab/recipe.ts';
+import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+try {
+  const spec = makeHouseSpecimen('window', 600, 400);
+  const r = new LabRenderer(document.getElementById('c'));
+  r.setSource(spec.canvas, spec.width, spec.height); r.resize(320,212,1);
+  await new Promise(s=>setTimeout(s,500));
+  const gl = r.gl; const V = {zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'};
+  const rec = defaultRecipe('kodak-tri-x');
+  const runs = [];
+  for (let i=0;i<3;i++) {
+    while (gl.getError() !== 0) {}
+    LabRenderer.debugTrace = [];
+    r.render(rec, getMaterial('kodak-tri-x'), V);
+    runs.push({ run:i, marks: LabRenderer.debugTrace.slice(), after: gl.getError() });
+    LabRenderer.debugTrace = null;
+  }
+  window.__result = { status:'ok', runs };
+} catch(e) { window.__result = { status:'error', message:String(e&&e.stack||e).slice(0,600) }; }
+</script></body></html>

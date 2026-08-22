@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>new filters</title>
+<style>body{margin:0;background:#060606;font:10px ui-monospace,monospace;color:#a8a49b}
+.g{display:grid;grid-template-columns:repeat(4,360px);gap:8px;padding:8px}
+figcaption{padding:4px 0;letter-spacing:.08em;text-transform:uppercase}</style></head><body>
+<div class="g" id="g"></div>
+<script type="module">
+  import { LabRenderer } from '/src/engine/renderer.ts';
+  import { getMaterial } from '/src/lab/materials.ts';
+  import { defaultRecipe } from '/src/lab/recipe.ts';
+  import { makeHouseSpecimen } from '/src/lab/specimens.ts';
+  window.__result={status:'running'};
+  try {
+    const spec = makeHouseSpecimen('window', 1200, 800);
+    const W=360,H=240;
+    const cases = [
+      ['none',          r=>{}],
+      ['motion blur',   r=>{ r.blur.amount=0.6; r.blur.angle=0.2; r.blur.taper=0.4; }],
+      ['zoom blur',     r=>{ r.blur.amount=0.7; r.blur.mode='zoom'; }],
+      ['spin blur',     r=>{ r.blur.amount=0.6; r.blur.mode='spin'; }],
+      ['halftone luma', r=>{ r.screen.halftone=1; r.screen.halfSize=5; }],
+      ['halftone cmyk', r=>{ r.screen.halftone=1; r.screen.halfSize=9; r.screen.halfColour=true; }],
+      ['duotone',       r=>{ r.screen.duotone=0.9; }],
+      ['paper fibre',   r=>{ r.paper.amount=0.85; r.paper.relief=0.7; r.paper.deckle=0.6; }],
+      ['paper toner',   r=>{ r.paper.amount=0.9; r.paper.stock='toner'; r.paper.scale=260; }],
+      ['scan thick',    r=>{ r.raster.scanline=0.8; r.raster.scanThick=0.9; r.raster.comb=0.3; }],
+      ['halftone+paper',r=>{ r.screen.halftone=0.9; r.screen.halfSize=4; r.paper.amount=0.7; r.paper.deckle=0.5; }],
+      ['blur+halftone', r=>{ r.blur.amount=0.5; r.screen.halftone=0.8; r.screen.halfSize=5; }],
+    ];
+    const g=document.getElementById('g'); let last=null;
+    for (const [label,tune] of cases) {
+      const fig=document.createElement('figure'); fig.style.margin=0;
+      const c=document.createElement('canvas'); c.width=W;c.height=H;c.style.display='block';
+      const cap=document.createElement('figcaption'); cap.textContent=label;
+      fig.append(c,cap); g.append(fig);
+      const r=new LabRenderer(c); r.setSource(spec.canvas,spec.width,spec.height); r.resize(W,H,1);
+      await new Promise(res=>setTimeout(res,300));
+      const mat = label.includes('cmyk') || label.includes('duotone') ? 'kodak-portra' : 'kodak-tri-x';
+      const rec=defaultRecipe(mat); rec.grain.amount=0.3; tune(rec);
+      r.render(rec,getMaterial(mat),{zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'});
+      await new Promise(res=>setTimeout(res,120));
+      r.render(rec,getMaterial(mat),{zoom:1,panX:0,panY:0,compare:'single',split:.5,view:'color'});
+      last=r;
+    }
+    window.__result={status:'ok',glError:last.gl.getError()};
+  } catch(e){ window.__result={status:'error',message:String(e&&e.stack||e)}; }
+</script></body></html>

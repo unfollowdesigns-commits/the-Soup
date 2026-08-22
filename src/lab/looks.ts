@@ -262,7 +262,10 @@ export function applyLook(base: PhotoRecipe, look: Look): PhotoRecipe {
   next.burns = [];
   next.trace = { ...next.trace, enabled: false };
   next.sequence = { ...next.sequence, enabled: false };
-  next.raster = { dither: 0, levels: 0.5, comb: 0, scanline: 0 };
+  next.raster = { dither: 0, levels: 0.5, comb: 0, scanline: 0, scanThick: 0.4, scanRoll: 0 };
+  next.blur = { ...next.blur, amount: 0 };
+  next.screen = { ...next.screen, halftone: 0, duotone: 0 };
+  next.paper = { ...next.paper, amount: 0 };
 
   look.apply(next);
   return next;

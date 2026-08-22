@@ -152,6 +152,21 @@ export const DIALS: Record<StageId, Dial> = {
     }),
     wake: 0.45,
   },
+  blur: {
+    get: (r) => r.blur.amount,
+    set: (r, v) => ({ ...r, blur: { ...r.blur, amount: clamp01(v) } }),
+    wake: 0.45,
+  },
+  screen: {
+    get: (r) => Math.max(r.screen.halftone, r.screen.duotone),
+    set: (r, v) => ({ ...r, screen: { ...r.screen, halftone: clamp01(v) } }),
+    wake: 0.85,
+  },
+  paper: {
+    get: (r) => r.paper.amount,
+    set: (r, v) => ({ ...r, paper: { ...r.paper, amount: clamp01(v) } }),
+    wake: 0.6,
+  },
   raster: {
     get: (r) => Math.max(r.raster.dither, r.raster.comb),
     set: (r, v) => ({ ...r, raster: { ...r.raster, dither: clamp01(v) } }),
