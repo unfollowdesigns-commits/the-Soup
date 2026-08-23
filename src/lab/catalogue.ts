@@ -1,4 +1,6 @@
 import type { PhotoRecipe, StageId } from './types';
+import { MATERIALS } from './materials';
+import { applyMaterial, GATE_FORMATS } from './recipe';
 
 /* ============================================================
    THE CATALOGUE
@@ -18,7 +20,8 @@ import type { PhotoRecipe, StageId } from './types';
    ============================================================ */
 
 export type EffectGroup =
-  | 'Material'
+  | 'Film stock'
+  | 'Format'
   | 'Exposure'
   | 'Emulsion'
   | 'Optics'
@@ -30,7 +33,7 @@ export type EffectGroup =
   | 'Display'
   | 'Print'
   | 'Vector'
-  | 'The Gate';
+  | 'The Gate';   /* kept so older entries still name a real group */
 
 export interface Effect {
   id: string;
@@ -295,7 +298,7 @@ export const EFFECTS: Effect[] = [
       { label: '35 mm', apply: (r) => ({ ...r, gate: { ...r.gate, show: true, format: 'm35', weave: 0.12 } }) },
     ],
   },
-  simple('burnthrough', 'Burning through', 'The Gate', 'The frame has stopped in front of the lamp. The emulsion goes, then the base, and what is left is a hole with an ember round it.', 'burn melt projector fire hole stuck', 'gate', 'burn', 0.55, undefined, [
+  simple('burnthrough', 'Burning through', 'Format', 'The frame has stopped in front of the lamp. The emulsion goes, then the base, and what is left is a hole with an ember round it.', 'burn melt projector fire hole stuck', 'gate', 'burn', 0.55, undefined, [
     { label: 'Catching', apply: (r) => ({ ...r, gate: { ...r.gate, burn: 0.2 } }) },
     { label: 'Going', apply: (r) => ({ ...r, gate: { ...r.gate, burn: 0.55 } }) },
     { label: 'Gone', apply: (r) => ({ ...r, gate: { ...r.gate, burn: 1 } }) },
@@ -309,7 +312,7 @@ export const EFFECTS: Effect[] = [
     on: (r) => ({ ...r, gate: { ...r.gate, leader: true, leaderAt: 0.15 } }),
     off: (r) => ({ ...r, gate: { ...r.gate, leader: false } }),
   },
-  simple('weave', 'Gate weave', 'The Gate', 'How much the frame moves in the gate. Regular 8 wanders; 35 on pilot pins does not.', 'wobble unsteady jitter registration', 'gate', 'weave', 0.8),
+  simple('weave', 'Gate weave', 'Format', 'How much the frame moves in the gate. Regular 8 wanders; 35 on pilot pins does not.', 'wobble unsteady jitter registration', 'gate', 'weave', 0.8),
 
   /* ---- vector ---- */
   {
@@ -358,9 +361,61 @@ export const EFFECTS: Effect[] = [
   },
 ];
 
+/* ============================================================
+   FILM STOCK AND FORMAT
+
+   Twenty-six emulsions and five gates were in the lab and in
+   none of the places you would look for them: the stock lived
+   behind an archive drawer and the formats behind one card
+   called "Film gate". They are effects like anything else — you
+   pick a film the same way you pick a blur — so they are in the
+   catalogue, each one rendering itself on your picture.
+   ============================================================ */
+
+const STOCK_EFFECTS: Effect[] = MATERIALS.map((m) => ({
+  id: `stock-${m.id}`,
+  name: m.name,
+  group: 'Film stock' as EffectGroup,
+  stage: 'material' as StageId,
+  note: `${m.manufacturer} · ${m.isoLabel} · ${m.yearFrom}${m.yearTo ? `–${m.yearTo}` : ' onwards'}. ${m.notes.tonal}`,
+  find: `${m.manufacturer} ${m.kind} ${m.isoLabel} ${m.formats.join(' ')} ${m.era} film stock emulsion negative`,
+  // a stock is either loaded or it is not
+  read: (r) => (r.material === m.id ? 1 : 0),
+  write: (r) => applyMaterial(r, m),
+  on: (r) => applyMaterial(r, m),
+  // taking a stock off means nothing; there is always a film in the camera
+  off: (r) => r,
+}));
+
+const FORMAT_EFFECTS: Effect[] = GATE_FORMATS.map((f) => ({
+  id: `gate-${f.id}`,
+  name: f.label,
+  group: 'Format' as EffectGroup,
+  stage: 'gate' as StageId,
+  note: f.note,
+  find: `${f.label} gate film strip perforations sprocket window frame line ${f.id === 'r8' ? '8mm regular double' : ''}${f.id === 's8' ? '8mm super cartridge' : ''}${f.id === 'm16' ? '16mm sixteen documentary' : ''}${f.id === 's16' ? '16mm super widescreen 1.66' : ''}${f.id === 'm35' ? '35mm thirty five academy cinema' : ''}`,
+  read: (r) => (r.gate.show && r.gate.format === f.id ? 1 : 0),
+  write: (r, v) => ({ ...r, gate: { ...r.gate, show: v > 0.5, format: f.id } }),
+  on: (r) => ({
+    ...r,
+    gate: {
+      ...r.gate,
+      show: true,
+      format: f.id,
+      // the weave each movement actually has
+      weave: f.id === 'r8' ? 0.85 : f.id === 's8' ? 0.7 : f.id === 'm35' ? 0.12 : 0.4,
+      frameline: 0.5,
+      lamp: 0.4,
+    },
+  }),
+  off: (r) => (r.gate.format === f.id ? { ...r, gate: { ...r.gate, show: false } } : r),
+}));
+
+EFFECTS.push(...STOCK_EFFECTS, ...FORMAT_EFFECTS);
+
 export const GROUPS: EffectGroup[] = [
-  'Exposure', 'Emulsion', 'Optics', 'Damage', 'Chemistry',
-  'Time', 'Geometry', 'Grade', 'Display', 'Print', 'The Gate', 'Vector',
+  'Film stock', 'Format', 'Emulsion', 'Damage', 'Chemistry',
+  'Time', 'Geometry', 'Grade', 'Display', 'Print', 'Optics', 'Exposure', 'Vector',
 ];
 
 export const getEffect = (id: string) => EFFECTS.find((e) => e.id === id);

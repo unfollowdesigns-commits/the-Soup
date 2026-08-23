@@ -149,12 +149,10 @@
 .ws__groups {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   padding: 0 var(--s3) var(--s3);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.ws__groups::-webkit-scrollbar { display: none; }
 .ws__groups button {
   flex: none;
   display: flex;
