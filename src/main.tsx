@@ -11,6 +11,7 @@ import './styles/screens.css';
 import './styles/mobile.css';
 // last: the identity pass overrides the surfaces the lab was built with
 import './styles/type.css';
+import './styles/workspace.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

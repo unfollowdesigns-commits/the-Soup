@@ -1,4 +1,4 @@
-import { LabShell } from './components/LabShell';
+import { Workspace } from './components/Workspace';
 import { DropAnywhere } from './components/DropAnywhere';
 import { EffectsScreen } from './screens/EffectsScreen';
 import { MobileLab } from './mobile/MobileLab';
@@ -37,7 +37,7 @@ function Screen() {
   if (screen === 'effects') return <EffectsScreen />;
   if (screen === 'press') return <Bench><PressBench /></Bench>;
   if (screen === 'light') return <Bench><LightBench /></Bench>;
-  return compact ? <MobileLab /> : <LabShell />;
+  return compact ? <MobileLab /> : <Workspace />;
 }
 
 export default function App() {
