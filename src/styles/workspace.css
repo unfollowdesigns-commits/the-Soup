@@ -512,3 +512,39 @@
   .ws { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'stage' 'chain'; }
   .ws__browse, .ws__panel { display: none; }
 }
+
+
+/* ---- the stage's own controls, inside a 320px panel ----
+   The bench sizes are wrong here: a 27px number and a bright blue mode
+   grid are right across a wide bench and shouting in a column. */
+.ws__all .modegrid { background: var(--line-soft); border-color: var(--line-soft); }
+.ws__all .modegrid__opt { background: var(--k-100); color: var(--paper-low); }
+.ws__all .modegrid__opt:hover { background: var(--k-200); color: var(--paper); }
+.ws__all .modegrid__opt[aria-pressed='true'] { background: var(--orange); color: var(--ink); font-weight: 600; }
+.ws__all .instr__value { font-size: var(--t-mid); }
+.ws__all .instr { padding: var(--s2) 0; }
+.ws__all .instr__note { font-size: 9px; }
+.ws__all .seg { background: transparent; }
+
+/* the disclosure that keeps the stage's full set out of the way until
+   it is wanted */
+.ws__alltoggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  padding: var(--s3) 0 var(--s2);
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-low);
+}
+.ws__alltoggle:hover { color: var(--paper); }
+.ws__alltoggle svg { transition: transform var(--d2) var(--e); }
+.ws__alltoggle[aria-expanded='true'] svg { transform: rotate(90deg); color: var(--orange); }
+
+/* the look at the end of the chain must not be cut off */
+.ws__look { width: 200px; }
+@media (max-width: 1360px) { .ws__look { display: none; } }

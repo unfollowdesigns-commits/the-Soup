@@ -50,12 +50,15 @@ export function Workspace() {
   const [looksOpen, setLooksOpen] = useState(false);
   const [stats, setStats] = useState<RenderStats | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [showAll, setShowAll] = useState(false);
 
   const onStats = useCallback((s: RenderStats | null) => setStats(s), []);
   const searchRef = useRef<HTMLInputElement>(null);
   const jobRef = useRef(0);
   const recipeRef = useRef(recipe);
   recipeRef.current = recipe;
+  const thumbsRef = useRef<Record<string, string>>({});
+  thumbsRef.current = thumbs;
 
   const chain = useMemo(() => activeEffects(recipe), [recipe]);
   const liveIds = useMemo(() => new Set(chain.map((e) => e.id)), [chain]);
@@ -68,6 +71,15 @@ export function Workspace() {
   }, [q, group, liveIds]);
   const orderRef = useRef<Effect[]>(EFFECTS);
   orderRef.current = shown;
+  /* a card you are looking at with a black frame is worse than one you
+     are not, so filtering kicks a top-up for whatever is now on screen */
+  const [topUp, setTopUp] = useState(0);
+  useEffect(() => {
+    if (shown.some((e) => !thumbs[e.id])) {
+      const t = window.setTimeout(() => setTopUp((n) => n + 1), 260);
+      return () => window.clearTimeout(t);
+    }
+  }, [shown, thumbs]);
 
   const current = picked ? EFFECTS.find((e) => e.id === picked) ?? null : null;
 
@@ -123,8 +135,10 @@ export function Workspace() {
       for (const e of orderRef.current) { queue.push(e); seen.add(e.id); }
       for (const e of EFFECTS) if (!seen.has(e.id)) queue.push(e);
 
+      const have = thumbsRef.current;
       for (const e of queue) {
         if (jobRef.current !== job) break;
+        if (have[e.id]) { out[e.id] = have[e.id]; continue; }
         const rec = e.on(structuredClone(base));
         renderer.render(rec, getMaterial(rec.material), {
           zoom: 1, panX: 0, panY: 0, compare: 'single', split: 0.5, view: 'color',
@@ -141,7 +155,7 @@ export function Workspace() {
       renderer?.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specimen]);
+  }, [specimen, topUp]);
 
   const add = (e: Effect) => {
     dispatch({ type: 'edit', mutate: (r) => e.on(r), log: { kind: 'experiment', title: e.name, detail: 'on' } });
@@ -290,14 +304,26 @@ export function Workspace() {
             ) : null}
 
             <div className="ws__all">
-              <span className="ws__allhead">Everything in {STAGE_LABEL[current.stage]}</span>
-              <ProcessPanel
-                placing="none"
-                setPlacing={() => undefined}
-                onInspect={() => undefined}
-                only={[current.stage]}
-                bare
-              />
+              <button
+                type="button"
+                className="ws__alltoggle"
+                aria-expanded={showAll}
+                onClick={() => setShowAll((v) => !v)}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+                  <path d="M2.5 1 L6 4 L2.5 7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                </svg>
+                Everything in {STAGE_LABEL[current.stage]}
+              </button>
+              {showAll ? (
+                <ProcessPanel
+                  placing="none"
+                  setPlacing={() => undefined}
+                  onInspect={() => undefined}
+                  only={[current.stage]}
+                  bare
+                />
+              ) : null}
             </div>
 
             <button className="btn btn--danger btn--block" type="button" onClick={() => drop(current)}>
