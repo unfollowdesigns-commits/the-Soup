@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { LabRenderer, fitScale, type CompareMode, type RenderStats, type ViewMode, type ViewState } from '../engine/renderer';
 import { getMaterial } from '../lab/materials';
+import { gateFit, getGate, type GateId } from '../lab/gate';
 import { makeBurn } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
 import { useVision } from '../vision/useVision';
@@ -25,6 +26,11 @@ import type { PhotoRecipe, Specimen } from '../lab/types';
    ============================================================ */
 
 export type PlacementMode = 'none' | 'burn';
+
+/** the viewer's format names are the gate's own ids */
+const GATE_ID: Record<string, GateId> = {
+  r8: 'r8', s8: 's8', m16: 'm16', s16: 's16', m35: 'm35',
+};
 
 export function SpecimenViewer({
   onStats,
@@ -113,7 +119,13 @@ export function SpecimenViewer({
     canvas.style.width = `${size.w}px`;
     canvas.style.height = `${size.h}px`;
     try {
-      onStats(r.render(recipe, getMaterial(recipe.material), viewRef.current));
+      // showing the film means the picture has to give up the width the
+      // stock takes either side of the aperture
+      const v = viewRef.current;
+      const shown = recipe.gate.show
+        ? { ...v, zoom: v.zoom * gateFit(getGate(GATE_ID[recipe.gate.format])) }
+        : v;
+      onStats(r.render(recipe, getMaterial(recipe.material), shown));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

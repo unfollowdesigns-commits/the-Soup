@@ -150,6 +150,18 @@ export const GATES: Gate[] = [
 
 export const getGate = (id: GateId): Gate => GATES.find((g) => g.id === id) ?? GATES[0];
 
+/**
+ * How much smaller the photograph has to sit so the whole strip fits
+ * beside it. The picture is the aperture; the stock is wider than the
+ * aperture; so showing the film means giving up that much of the frame.
+ * Without this the gutters — and with them the perforations and the
+ * edge print — are drawn off the edge of the stage.
+ */
+export function gateFit(gate: Gate): number {
+  if (gate.edges === 'none' || gate.stock <= gate.apertureW) return 1;
+  return (gate.apertureW / gate.stock) * 0.9;
+}
+
 /* ============================================================
    OUTPUT
    ============================================================ */

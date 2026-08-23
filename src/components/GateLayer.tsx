@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { fitScale, type ViewState } from '../engine/renderer';
-import { getGate, layoutGate } from '../lab/gate';
+import { gateFit, getGate } from '../lab/gate';
 import type { GateFormat, PhotoRecipe, Specimen } from '../lab/types';
 
 /* ============================================================
@@ -67,8 +67,11 @@ export function GateLayer({
       g.clearRect(0, 0, size.w, size.h);
 
       // where the photograph sits on the table
+      // the same give-up the renderer applies, so the film lands exactly
+      // on the photograph rather than near it
+      const gate = getGate(FORMAT_TO_GATE[gt.format] as never);
       const fit = fitScale(size.w, size.h, specimen.width, specimen.height);
-      const s = fit * view.zoom;
+      const s = fit * view.zoom * (gt.show ? gateFit(gate) : 1);
       const dw = specimen.width * s;
       const dh = specimen.height * s;
       const ox = (size.w - dw) / 2 - view.panX * dw;
@@ -112,69 +115,107 @@ function drawStock(
   frame: number,
 ) {
   const gate = getGate(FORMAT_TO_GATE[gt.format] as never);
-  // lay the strip out at the size the picture is being shown
-  const l = layoutGate(gate, dw, dh, 'gate');
+
+  /* ---- the film is drawn OUTWARD from the photograph ----
+     The exporter fits a strip into a frame and puts the picture in its
+     aperture. Here the picture is already on screen and cannot move, so
+     the aperture is wherever the photograph is and the stock is built
+     around it. Getting this the other way round is what made the gate
+     squeeze the picture into a corner. */
+  const mmPerPx = gate.apertureW / dw;              /* picture width is the aperture */
+  const stockPx = gate.stock / mmPerPx;             /* the whole width of the film */
+  const gutterPx = stockPx - dw;                    /* what is left over, either side */
+  const pitchMm = gate.apertureH * 1.06;            /* frame to frame */
+  const pitchPx = pitchMm / mmPerPx * (dh / (gate.apertureH / mmPerPx));
+  const framePx = dh * 0.06;                        /* the gap between frames */
+  const perfW = gate.perfW / mmPerPx;
+  const perfH = gate.perfH / mmPerPx;
+
+  /* The strip is kept centred on the photograph, because the photograph
+     is already centred on the stage and cannot move. A one-edge format
+     puts all its perforations down the left of that gutter instead of
+     shifting the picture, which would push the holes off the screen. */
+  const both = gate.edges === 'both';
+  const leftGutter = gutterPx / 2;
+  const rightGutter = gutterPx / 2;
+
   const r = mulberry32(gt.burnSeed + frame * 7919);
   const slow = Math.sin(frame * 0.11) * 0.55;
-  const wx = (r() * 2 - 1 + slow * 0.4) * l.weaveX * gt.weave * 3;
-  const wy = (r() * 2 - 1 + slow) * l.weaveY * gt.weave * 3;
+  const wx = (r() * 2 - 1 + slow * 0.4) * dw * gate.weaveX * gt.weave * 3;
+  const wy = (r() * 2 - 1 + slow) * dh * gate.weaveY * gt.weave * 3;
+
+  const L = ox - leftGutter + wx;                   /* left edge of the stock */
+  const R = ox + dw + rightGutter + wx;
+  const top = oy + wy;
 
   g.save();
-  g.translate(ox + wx, oy + wy);
 
-  /* the gutter: black stock either side of the picture, with the
-     perforations punched through it */
-  const gutterL = l.x;
-  const gutterR = dw - (l.x + l.w);
-  g.fillStyle = 'rgba(9, 8, 7, 0.97)';
-  if (gutterL > 0.5) g.fillRect(-wx, -wy, gutterL, dh);
-  if (gutterR > 0.5) g.fillRect(l.x + l.w, -wy, gutterR + Math.abs(wx) + 2, dh);
+  /* the base: clear stock, with the dye still in it */
+  const base = g.createLinearGradient(L, 0, R, 0);
+  base.addColorStop(0, '#141210');
+  base.addColorStop(0.5, '#191512');
+  base.addColorStop(1, '#131110');
+  g.fillStyle = base;
+  g.fillRect(L, top - dh, R - L, dh * 3);
 
-  /* the frame line, top and bottom */
-  const fl = (dh - l.h) / 2 * gt.frameline;
-  if (fl > 0.5) {
-    g.fillStyle = 'rgba(9, 8, 7, 0.97)';
-    g.fillRect(l.x, -wy, l.w, fl);
-    g.fillRect(l.x, dh - fl, l.w, fl + Math.abs(wy) + 2);
-    // the next frame, showing at the edge of this one
-    g.fillStyle = 'rgba(255, 244, 224, 0.05)';
-    g.fillRect(l.x, fl - 1.5, l.w, 1.5);
-    g.fillRect(l.x, dh - fl, l.w, 1.5);
+  /* punch the photograph back out: everything the lamp goes through */
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  const corner = Math.min(dw, dh) * gate.corner;
+  roundRect(g, ox + wx, top, dw, dh, corner);
+  g.fill();
+  g.restore();
+
+  /* the frame line, and the frame above and below showing at the edge */
+  if (gt.frameline > 0) {
+    const fl = framePx * gt.frameline;
+    g.fillStyle = 'rgba(9, 8, 7, 0.96)';
+    g.fillRect(ox + wx, top, dw, fl);
+    g.fillRect(ox + wx, top + dh - fl, dw, fl);
+    g.fillStyle = 'rgba(255, 244, 224, 0.045)';
+    g.fillRect(ox + wx, top + fl, dw, 1.2);
+    g.fillRect(ox + wx, top + dh - fl - 1.2, dw, 1.2);
   }
 
-  /* perforations — holes, so the lamp comes through them */
-  if (l.pitch > 2) {
-    const phase = (frame * 0.0) % l.pitch;
-    for (const cx of l.cols) {
-      for (let y = -l.pitch + phase; y < dh + l.pitch; y += l.pitch) {
-        const rr = Math.min(l.perfW, l.perfH) * 0.16;
-        roundRect(g, cx - l.perfW / 2, y, l.perfW, l.perfH, rr);
-        const hole = g.createLinearGradient(cx - l.perfW / 2, 0, cx + l.perfW / 2, 0);
+  /* perforations — holes, so the lamp comes straight through them */
+  const cols = both
+    ? [L + leftGutter * 0.5, R - rightGutter * 0.5]
+    : [L + leftGutter * 0.42];
+  const perfPitch = pitchPx / Math.max(1, gate.perfsPerFrame);
+  if (perfW > 1.5 && perfH > 1) {
+    for (const cx of cols) {
+      for (let y = top - perfPitch; y < top + dh + perfPitch; y += perfPitch) {
+        const rr = Math.min(perfW, perfH) * 0.16;
+        roundRect(g, cx - perfW / 2, y, perfW, perfH, rr);
+        const hole = g.createLinearGradient(cx - perfW / 2, 0, cx + perfW / 2, 0);
         hole.addColorStop(0, '#cdc4b0');
         hole.addColorStop(0.42, '#efe9dc');
         hole.addColorStop(1, '#bdb4a2');
         g.fillStyle = hole;
         g.fill();
         g.strokeStyle = 'rgba(20, 16, 12, 0.55)';
-        g.lineWidth = Math.max(1, l.perfW * 0.035);
+        g.lineWidth = Math.max(1, perfW * 0.035);
         g.stroke();
 
         if (gt.wear > 0.02 && r() < gt.wear * 0.5) {
           g.fillStyle = `rgba(210, 196, 168, ${0.08 + gt.wear * 0.18})`;
-          const tw = l.perfW * (0.2 + r() * 0.5);
-          g.fillRect(cx - l.perfW / 2 - tw * 0.3, y + l.perfH * r(), tw, Math.max(1, l.perfH * 0.09));
+          const tw = perfW * (0.2 + r() * 0.5);
+          g.fillRect(cx - perfW / 2 - tw * 0.3, y + perfH * r(), tw, Math.max(1, perfH * 0.09));
         }
       }
     }
   }
 
-  /* the edge print, exposed at the factory */
-  if (gate.edgePrint && l.legendSize > 5) {
+  /* the edge print, exposed at the factory, between the holes and the
+     picture where a lab actually puts it */
+  const legendSize = Math.max(6, Math.min(perfH * 0.42, leftGutter * 0.2));
+  if (gate.edgePrint && legendSize > 6) {
+    const lx = both ? L + leftGutter * 0.86 : L + leftGutter * 0.8;
     g.save();
-    g.font = `600 ${l.legendSize}px "IBM Plex Mono", ui-monospace, monospace`;
+    g.font = `600 ${legendSize}px "IBM Plex Mono", ui-monospace, monospace`;
     g.textBaseline = 'middle';
     g.fillStyle = `rgba(222, 202, 160, ${0.26 + gt.wear * 0.14})`;
-    g.translate(l.legendX, dh * 0.5);
+    g.translate(lx, top + dh * 0.5);
     g.rotate(-Math.PI / 2);
     const legend = `${gate.edgePrint} · ${String(frame).padStart(5, '0')}`;
     g.fillText(legend, -g.measureText(legend).width / 2, 0);
@@ -184,13 +225,13 @@ function drawStock(
   /* the lamp, spilling round the aperture */
   if (gt.lamp > 0) {
     const spill = g.createRadialGradient(
-      l.x + l.w / 2, dh / 2, Math.min(l.w, l.h) * 0.42,
-      l.x + l.w / 2, dh / 2, Math.max(l.w, l.h) * 0.8,
+      ox + dw / 2, top + dh / 2, Math.min(dw, dh) * 0.45,
+      ox + dw / 2, top + dh / 2, Math.max(dw, dh) * 0.85,
     );
     spill.addColorStop(0, 'rgba(255, 236, 200, 0)');
-    spill.addColorStop(1, `rgba(255, 232, 190, ${gt.lamp * 0.09})`);
+    spill.addColorStop(1, `rgba(255, 232, 190, ${gt.lamp * 0.1})`);
     g.fillStyle = spill;
-    g.fillRect(0, 0, dw, dh);
+    g.fillRect(L, top - dh, R - L, dh * 3);
   }
 
   g.restore();
