@@ -13,6 +13,7 @@ import type {
   RDStyle,
   WarpMode,
   WarpEdge,
+  GateFormat,
 } from './types';
 import { getMaterial, MATERIALS } from './materials';
 
@@ -118,6 +119,22 @@ export function defaultRecipe(materialId = 'kodak-tri-x'): PhotoRecipe {
       amount: 0, stock: 'fibre', scale: 420, relief: 0.5, bleed: 0.5,
       deckle: 0, tint: [0.96, 0.94, 0.88],
     },
+    gate: {
+      show: false,
+      format: 's8',
+      weave: 0.6,
+      frameline: 0.5,
+      lamp: 0.4,
+      wear: 0.3,
+      burn: 0,
+      burnX: 0.42,
+      burnY: 0.46,
+      burnSeed: 7717,
+      leader: false,
+      leaderAt: 0,
+      leaderFrom: 8,
+    },
+
     warp: {
       mode: 'wave',
       amount: 0,
@@ -315,6 +332,14 @@ export const PAPER_STOCKS: { id: PaperStock; label: string; file: string; tint: 
   { id: 'copy', label: 'Second copy', file: 'analog/photocopy/toner-2.png', tint: [0.9, 0.9, 0.88] },
 ];
 
+export const GATE_FORMATS: { id: GateFormat; label: string; note: string }[] = [
+  { id: 'r8', label: 'Regular 8', note: '4.8 × 3.5 mm, 16 fps. One perforation a frame, on one edge, and it never sits still.' },
+  { id: 's8', label: 'Super 8', note: '5.79 × 4.01 mm, 18 fps. Smaller perforations bought a bigger picture.' },
+  { id: 'm16', label: '16 mm', note: '10.26 × 7.49 mm, 24 fps. Perforated both edges. Steadier, and the grain has room.' },
+  { id: 's16', label: 'Super 16', note: '12.52 × 7.41 mm, 24 fps. The second row of perforations given up for picture.' },
+  { id: 'm35', label: '35 mm', note: '21 × 15.2 mm, 24 fps. Four perforations a frame and pilot pins: it does not move.' },
+];
+
 export const WARP_MODES: { id: WarpMode; label: string; note: string }[] = [
   { id: 'wave', label: 'Wave', note: 'A sine across the frame. The print, hung wet.' },
   { id: 'ripple', label: 'Ripple', note: 'Rings out from a point, as if something was dropped in it.' },
@@ -393,6 +418,7 @@ export const STAGE_LABEL: Record<StageId, string> = {
   time: 'Time',
   warp: 'Warp',
   signal: 'Signal',
+  gate: 'The Gate',
   vision: 'Vision',
 };
 
@@ -412,6 +438,7 @@ export const STAGE_ORDER: StageId[] = [
   'time',
   'warp',
   'signal',
+  'gate',
   'sequence',
   'blur',
   'screen',
@@ -431,6 +458,15 @@ export function stageSummary(id: StageId, r: PhotoRecipe): string {
   switch (id) {
     case 'material':
       return m.name;
+    case 'gate': {
+      const g = r.gate;
+      if (!g.show && !g.leader && g.burn <= 0) return 'Off the reel';
+      const on: string[] = [];
+      if (g.show) on.push(GATE_FORMATS.find((f) => f.id === g.format)?.label ?? g.format);
+      if (g.leader) on.push('Leader');
+      if (g.burn > 0) on.push(g.burn > 0.92 ? 'Burnt through' : `Burning ${(g.burn * 100).toFixed(0)}%`);
+      return on.join(' · ');
+    }
     case 'warp': {
       const w = r.warp;
       if (w.amount <= 0) return 'Flat';
@@ -553,6 +589,8 @@ export function stageActive(id: StageId, r: PhotoRecipe): boolean {
   switch (id) {
     case 'material':
       return true;
+    case 'gate':
+      return r.gate.show || r.gate.leader || r.gate.burn > 0;
     case 'warp':
       return r.warp.amount > 0;
     case 'signal': {

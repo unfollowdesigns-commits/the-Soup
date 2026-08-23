@@ -7,6 +7,7 @@ import {
   RD_STYLES,
   WARP_MODES,
   WARP_EDGES,
+  GATE_FORMATS,
   PAPER_STOCKS,
   GLYPH_RAMPS,
   TRACE_COLOURS,
@@ -123,6 +124,7 @@ export function ProcessPanel({
       {show('depth') && <DepthModule mod={mod('depth')} />}
       {show('trace') && <TraceModule mod={mod('trace')} />}
       {show('time') && <TimeModule mod={mod('time')} />}
+      {show('gate') && <GateModule mod={mod('gate')} />}
       {show('warp') && <WarpModule mod={mod('warp')} />}
       {show('signal') && <SignalModule mod={mod('signal')} />}
       {show('sequence') && <SequenceModule mod={mod('sequence')} />}
@@ -1192,6 +1194,85 @@ function TimeModule({ mod }: { mod: ModProps }) {
       <Instrument label="Kill" value={t.rdKill} min={0.03} max={0.075} step={0.0005} format={(v) => v.toFixed(4)} {...p('rdKill', 'Kill Rate')} />
       <Instrument label="Growth" value={t.rdSteps} min={1} max={60} step={1} format={(v) => `${v.toFixed(0)} / frame`} {...p('rdSteps', 'Growth')} />
       <Instrument label="Led by the picture" value={t.rdSeed} note="How hard the photograph drives the chemistry. At zero it grows on its own." {...p('rdSeed', 'Chemistry Seed')} />
+    </Module>
+  );
+}
+
+/* ---------------- THE GATE ----------------
+   The film round the picture while you work, not only on export. */
+function GateModule({ mod }: { mod: ModProps }) {
+  const { recipe } = useLab();
+  const { live, once, commit } = useProcess();
+  const gt = recipe.gate;
+  const p = (k: keyof typeof gt, title: string) => ({
+    onChange: (v: number) => live((r) => ({ ...r, gate: { ...r.gate, [k]: v } }), 'gate', title, v.toFixed(2)),
+    onCommit: commit,
+  });
+  const set = <K extends keyof typeof gt>(k: K, v: (typeof gt)[K], title: string, detail: string) =>
+    once((r) => ({ ...r, gate: { ...r.gate, [k]: v } }), 'gate', title, detail);
+  const fmt = GATE_FORMATS.find((f) => f.id === gt.format)!;
+
+  return (
+    <Module title="The Gate" {...mod} accent="red">
+      <p className="instr__note">
+        The same numbers the exporter uses, drawn live over the picture, so
+        the bench shows what will come out of the file.
+      </p>
+
+      <div className="modegrid">
+        {GATE_FORMATS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className="modegrid__opt"
+            aria-pressed={gt.format === f.id}
+            title={f.note}
+            onClick={() => set('format', f.id, 'Gate', f.label)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <p className="instr__note">{fmt.note}</p>
+
+      <label className="clip__check">
+        <input type="checkbox" checked={gt.show} onChange={(e) => set('show', e.target.checked, 'Gate', e.target.checked ? 'On' : 'Off')} />
+        <span>
+          <span className="clip__check-name">Show the film</span>
+          <span className="mono mono--dim">Perforations, frame line and edge print, over the picture.</span>
+        </span>
+      </label>
+
+      <Instrument label="Weave" value={gt.weave} note="How much the frame moves in the gate. Regular 8 wanders; 35 on pilot pins does not." {...p('weave', 'Weave')} />
+      <Instrument label="Frame line" value={gt.frameline} note="How far the gap between frames comes into the picture." {...p('frameline', 'Frame Line')} />
+      <Instrument label="Lamp" value={gt.lamp} note="Light spilling round the aperture." {...p('lamp', 'Lamp')} />
+      <Instrument label="Print wear" value={gt.wear} note="How many times this print has been through a projector." {...p('wear', 'Print Wear')} />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Burning through</span><span className="sec-head__line" /></h4>
+      <p className="instr__note">
+        The frame has stopped in front of the lamp. The emulsion goes first —
+        a clear patch spreading with a torn edge — then the base, and what is
+        left is a hole with an ember round it. At 100 there is only the lamp.
+      </p>
+      <Instrument label="How far gone" value={gt.burn} {...p('burn', 'Burn Through')} />
+      <Instrument label="Where across" value={gt.burnX} {...p('burnX', 'Burn X')} />
+      <Instrument label="Where down" value={gt.burnY} {...p('burnY', 'Burn Y')} />
+      <SeedField
+        label="Tear"
+        seed={gt.burnSeed}
+        onSeed={(v) => set('burnSeed', v, 'Burn Tear', seedLabel(v))}
+      />
+
+      <h4 className="sec-head sec-head--sub"><span className="lbl">Leader</span><span className="sec-head__line" /></h4>
+      <label className="clip__check">
+        <input type="checkbox" checked={gt.leader} onChange={(e) => set('leader', e.target.checked, 'Leader', e.target.checked ? 'On' : 'Off')} />
+        <span>
+          <span className="clip__check-name">Countdown</span>
+          <span className="mono mono--dim">A hand sweeping once a second round a numbered circle.</span>
+        </span>
+      </label>
+      <Instrument label="How far through" value={gt.leaderAt} {...p('leaderAt', 'Leader Position')} />
+      <Instrument label="Counts from" value={gt.leaderFrom} min={3} max={12} step={1} format={(v) => v.toFixed(0)} {...p('leaderFrom', 'Leader Count')} />
     </Module>
   );
 }

@@ -278,6 +278,26 @@ export interface PhotoRecipe {
     tint: [number, number, number];
   };
 
+  /** the film itself, over the picture: perforations, the leader, and
+   *  what happens when the frame stops in front of the lamp */
+  gate: {
+    show: boolean;
+    format: GateFormat;
+    weave: number;        /* how much the frame moves in the gate */
+    frameline: number;    /* how far the frame line intrudes */
+    lamp: number;         /* light spilling round the aperture */
+    wear: number;         /* how many times this print has been run */
+    /** the frame stops and the emulsion goes */
+    burn: number;         /* 0 = fine, 1 = burnt through */
+    burnX: number;
+    burnY: number;
+    burnSeed: number;
+    /** the countdown before the picture starts */
+    leader: boolean;
+    leaderAt: number;     /* 0..1 through the count */
+    leaderFrom: number;   /* the number it counts down from */
+  };
+
   /** geometry: what happens to the print after it is made */
   warp: {
     mode: WarpMode;
@@ -370,6 +390,8 @@ export type WarpMode =
   | 'wave' | 'ripple' | 'twirl' | 'pinch' | 'glass' | 'kaleidoscope'
   | 'mirror' | 'polar' | 'fisheye' | 'shear' | 'tile';
 export type WarpEdge = 'hold' | 'wrap' | 'mirror';
+/** the gate formats the viewer can put round a picture */
+export type GateFormat = 'r8' | 's8' | 'm16' | 's16' | 'm35';
 export type RDStyle = 'etch' | 'dye' | 'relief';
 export type PaperStock = 'fibre' | 'rag' | 'toner' | 'copy';
 
@@ -422,6 +444,7 @@ export type LogKind =
   | 'time'
   | 'warp'
   | 'signal'
+  | 'gate'
   | 'export';
 
 export interface LogEntry {
@@ -476,6 +499,7 @@ export type StageId =
   | 'time'
   | 'warp'
   | 'signal'
+  | 'gate'
   | 'vision';
 
 export interface StageState {

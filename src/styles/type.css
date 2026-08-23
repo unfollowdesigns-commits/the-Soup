@@ -654,3 +654,175 @@
 }
 .modegrid__opt:hover { background: var(--blue-lift); color: var(--ink); }
 .modegrid__opt[aria-pressed='true'] { background: var(--ink); color: var(--blue); font-weight: 600; }
+
+/* the film round the picture sits under the vector layer and over the
+   photograph, because that is where it is in a projector */
+.gatelayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ============================================================
+   THE EFFECT LIBRARY
+   A catalogue, not an accordion. Search at the top, categories
+   under it, and a grid of cards each showing that one effect on
+   the photograph actually on the table.
+   ============================================================ */
+
+.rig[data-bench='library'] { --bench: 620px; }
+@media (min-width: 1700px) { .rig[data-bench='library'] { --bench: 760px; } }
+@media (max-width: 1200px) { .rig[data-bench='library'] { --bench: 480px; } }
+
+/* the library is a catalogue on black, not a control panel on blue */
+.benchpanel[data-id='library'] { background: var(--k-000); border-right-color: var(--line); }
+.benchpanel[data-id='library'] .benchpanel__head { background: var(--k-100); }
+.benchpanel[data-id='library'] .benchpanel__title { color: var(--paper); }
+.benchpanel[data-id='library'] .benchpanel__hint { color: var(--paper-low); }
+.benchpanel[data-id='library'] .benchpanel__shut { color: var(--paper-low); border-color: var(--line-soft); }
+.benchpanel[data-id='library'] .benchpanel__shut:hover { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+/* the bench-on-blue rules do not apply on the library's black ground */
+.benchpanel[data-id='library'] .mono { color: var(--paper-low); }
+.benchpanel[data-id='library'] .mono--val { color: var(--paper); }
+.benchpanel[data-id='library'] .lbl { color: var(--paper-dim); }
+
+.lib {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  background: var(--k-000);
+}
+
+.lib__find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line-soft);
+}
+.lib__search {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-soft);
+  background: var(--k-100);
+  color: var(--paper);
+  font-family: var(--f-display);
+  font-size: var(--t-body);
+}
+.lib__search::placeholder { color: var(--paper-low); }
+.lib__search:focus { outline: none; border-color: var(--orange); }
+.lib__search::-webkit-search-cancel-button { filter: invert(0.6); }
+.lib__count { flex: none; font-size: var(--t-nano); color: var(--paper-low); }
+
+.lib__groups {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  padding: var(--s2) var(--s4) var(--s3);
+}
+.lib__group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px var(--s3);
+  border: 1px solid var(--line-soft);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  color: var(--paper-low);
+}
+.lib__group:hover { color: var(--paper); border-color: var(--line); }
+.lib__group[aria-pressed='true'] {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--ink);
+}
+.lib__group--on .mono { font-size: var(--t-nano); color: var(--orange); }
+.lib__group--on[aria-pressed='true'] .mono { color: var(--ink); }
+
+.lib__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: var(--s4) var(--s3);
+  align-content: start;
+  padding: var(--s2) var(--s4) var(--s7);
+}
+.lib__none { padding: var(--s5); color: var(--paper-low); font-size: var(--t-tiny); }
+
+.fx { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fx__frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--k-100);
+  transition: border-color var(--d1) var(--e);
+}
+.fx__frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fx__frame:hover { border-color: var(--paper); }
+.fx[data-on='true'] .fx__frame { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange); }
+.fx__pending {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, var(--k-100), var(--k-200) 50%, var(--k-100));
+  animation: look-wait 1.4s var(--e) infinite;
+}
+.fx__on {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 2px 5px;
+  background: var(--orange);
+  color: var(--ink);
+  font-size: var(--t-nano);
+  font-weight: 600;
+}
+
+.fx__head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+.fx__name {
+  font-family: var(--f-display);
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  color: var(--paper-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fx[data-on='true'] .fx__name { color: var(--paper); }
+.fx__group { margin-left: auto; font-size: 8px; color: #4a4844; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.fx__live { display: flex; align-items: center; gap: var(--s2); }
+.fx__slider { flex: 1; min-width: 0; accent-color: var(--orange); height: 16px; }
+.fx__out {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-soft);
+  color: var(--paper-low);
+  font-size: 12px;
+  line-height: 1;
+}
+.fx__out:hover { background: var(--orange); border-color: var(--orange); color: var(--ink); }
+
+.fx__more { display: flex; flex-direction: column; gap: var(--s2); }
+.fx__note { font-size: var(--t-nano); line-height: 1.5; color: var(--paper-low); }
+.fx__presets { display: flex; flex-wrap: wrap; gap: 3px; }
+.fx__preset {
+  padding: 3px 6px;
+  border: 1px solid var(--line-soft);
+  font-family: var(--f-display);
+  font-size: var(--t-nano);
+  color: var(--paper-dim);
+}
+.fx__preset:hover { background: var(--paper); border-color: var(--paper); color: var(--ink); }

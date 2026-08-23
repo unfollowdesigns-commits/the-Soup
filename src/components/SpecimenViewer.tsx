@@ -14,6 +14,7 @@ import { useVision } from '../vision/useVision';
 import { LookStrip } from './LookStrip';
 import { VisionLayer } from '../vision/VisionLayer';
 import { TraceOverlay } from './TraceOverlay';
+import { GateLayer } from './GateLayer';
 import type { TraceResult } from '../lab/tracker';
 import type { PhotoRecipe, Specimen } from '../lab/types';
 
@@ -282,6 +283,8 @@ export function SpecimenViewer({
           onStatus={vision.setStatus}
           onRead={vision.setRead}
         />
+
+        <GateLayer recipe={recipe} specimen={specimen} view={view} size={size} />
 
         <TraceOverlay
           recipe={recipe}

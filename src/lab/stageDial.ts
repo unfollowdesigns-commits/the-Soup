@@ -40,6 +40,12 @@ export const DIALS: Record<StageId, Dial> = {
     }),
     wake: 0.62,
   },
+  gate: {
+    // the dial is the burn: the one thing on this stage that is a quantity
+    get: (r) => clamp01(r.gate.burn),
+    set: (r, v) => ({ ...r, gate: { ...r.gate, burn: clamp01(v) } }),
+    wake: 0.5,
+  },
   warp: {
     get: (r) => clamp01(r.warp.amount),
     set: (r, v) => ({ ...r, warp: { ...r.warp, amount: clamp01(v) } }),

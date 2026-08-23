@@ -11,6 +11,8 @@ import { MaterialDetail } from './MaterialDetail';
 import { ProcessPanel } from './ProcessPanel';
 import { SpecimenViewer, type PlacementMode } from './SpecimenViewer';
 import { LookStrip } from './LookStrip';
+import { EffectLibrary } from './EffectLibrary';
+import { EFFECTS } from '../lab/catalogue';
 import { DepthAnalysis, ProcessingStatus } from './Status';
 
 /* ============================================================
@@ -26,11 +28,12 @@ import { DepthAnalysis, ProcessingStatus } from './Status';
    Everything has a key. Nothing has a card.
    ============================================================ */
 
-type Bench = null | 'stock' | 'cook' | 'read';
+type Bench = null | 'library' | 'stock' | 'cook' | 'read';
 
 const BENCHES: { id: Exclude<Bench, null>; label: string; key: string; hint: string }[] = [
+  { id: 'library', label: 'Effects', key: 'f', hint: 'Every effect, searchable' },
   { id: 'stock', label: 'Stock', key: 's', hint: 'The material archive' },
-  { id: 'cook', label: 'Cook', key: 'c', hint: 'Every stage of the process' },
+  { id: 'cook', label: 'Cook', key: 'c', hint: 'Every stage, in the order it runs' },
   { id: 'read', label: 'Read', key: 'r', hint: 'What the engine is doing' },
 ];
 
@@ -41,7 +44,7 @@ export function LabShell() {
   } = useLab();
   const dispatch = useDispatch();
   const [stats, setStats] = useState<RenderStats | null>(null);
-  const [bench, setBench] = useState<Bench>('cook');
+  const [bench, setBench] = useState<Bench>('library');
   const [deckTab, setDeckTab] = useState<DeckTab>('looks');
   const [deckClosed, setDeckClosed] = useState(false);
   const [bare, setBare] = useState(false);
@@ -182,7 +185,7 @@ export function LabShell() {
               type="button"
               onClick={() => dispatch({ type: 'bench', open: true })}
             >
-              Open the bench
+              All {EFFECTS.length} effects
               <span className="plain__door-key mono">B</span>
             </button>
           </div>
@@ -345,6 +348,8 @@ export function LabShell() {
           </header>
 
           <div className="benchpanel__body">
+            {bench === 'library' ? <EffectLibrary /> : null}
+
             {bench === 'stock' ? (
               <>
                 <MaterialArchive
