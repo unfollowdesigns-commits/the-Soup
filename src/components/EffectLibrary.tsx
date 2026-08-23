@@ -10,6 +10,7 @@ import {
   type EffectGroup,
 } from '../lab/catalogue';
 import { useDispatch, useLab } from '../lab/store';
+import { Range } from './Range';
 
 /* ============================================================
    THE EFFECT LIBRARY
@@ -24,16 +25,15 @@ import { useDispatch, useLab } from '../lab/store';
    still, so the whole library costs one context.
    ============================================================ */
 
-const TW = 156;
-const TH = 104;
+const TW = 264;
+const TH = 176;
 
-export function EffectLibrary() {
+export function EffectLibrary({ onClose }: { onClose: () => void }) {
   const { recipe, specimen } = useLab();
   const dispatch = useDispatch();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<EffectGroup | 'all' | 'on'>('all');
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<string | null>(null);
   const jobRef = useRef(0);
   /* what the grid is showing, so the renderer can do those first */
   const orderRef = useRef<Effect[]>(EFFECTS);
@@ -123,21 +123,38 @@ export function EffectLibrary() {
 
   return (
     <div className="lib">
-      <div className="lib__find">
-        <input
-          className="lib__search"
-          type="search"
-          value={q}
-          placeholder={`Search ${EFFECTS.length} effects — try "tunnel", "8mm", "chroma"`}
-          onChange={(ev) => setQ(ev.target.value)}
-          aria-label="Search effects"
-        />
-        <span className="lib__count mono">
-          {shown.length}/{EFFECTS.length}
+      <header className="lib__bar">
+        <h1 className="lib__title">Effects</h1>
+        <span className="lib__tally mono">
+          <b>{shown.length}</b> of {EFFECTS.length}
+          {live.size ? <><span className="lib__sep">·</span><em>{live.size} on</em></> : null}
         </span>
-      </div>
+        <span className="spacer" />
+        <div className="lib__searchwrap">
+          <svg className="lib__mag" width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
+            <circle cx="5.5" cy="5.5" r="4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M8.6 8.6 L12 12" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
+          <input
+            className="lib__search"
+            type="text"
+            value={q}
+            autoFocus
+            placeholder={`tunnel · 8mm · chroma · countdown`}
+            onChange={(ev) => setQ(ev.target.value)}
+            aria-label="Search effects"
+          />
+          {q ? (
+            <button className="lib__clear" type="button" onClick={() => setQ('')} aria-label="Clear">×</button>
+          ) : null}
+        </div>
+        <button className="lib__done" type="button" onClick={onClose}>
+          Back to the picture
+          <span className="mono">esc</span>
+        </button>
+      </header>
 
-      <div className="lib__groups">
+      <nav className="lib__groups" aria-label="Categories">
         <button type="button" className="lib__group" aria-pressed={group === 'all'} onClick={() => setGroup('all')}>
           Everything
         </button>
@@ -147,8 +164,9 @@ export function EffectLibrary() {
           aria-pressed={group === 'on'}
           onClick={() => setGroup('on')}
         >
-          On the picture <span className="mono">{live.size}</span>
+          On the picture<span className="mono">{live.size}</span>
         </button>
+        <span className="lib__gap" />
         {GROUPS.map((gp) => (
           <button
             key={gp}
@@ -158,9 +176,10 @@ export function EffectLibrary() {
             onClick={() => setGroup(gp)}
           >
             {gp}
+            <span className="mono">{EFFECTS.filter((e) => e.group === gp).length}</span>
           </button>
         ))}
-      </div>
+      </nav>
 
       <div className="lib__grid scroll-y">
         {shown.length === 0 ? (
@@ -169,71 +188,62 @@ export function EffectLibrary() {
         {shown.map((e) => {
           const amount = e.read(recipe);
           const isOn = amount > 0.001;
-          const isOpen = open === e.id;
           return (
-            <article key={e.id} className="fx" data-on={isOn} data-open={isOpen}>
+            <article key={e.id} className="fx" data-on={isOn}>
               <button
                 type="button"
                 className="fx__frame"
                 title={e.note}
-                onClick={() => (isOn ? setOpen(isOpen ? null : e.id) : add(e))}
+                onClick={() => (isOn ? remove(e) : add(e))}
+                aria-pressed={isOn}
               >
                 {thumbs[e.id] ? (
                   <img src={thumbs[e.id]} alt="" width={TW} height={TH} />
                 ) : (
                   <span className="fx__pending" />
                 )}
+                <span className="fx__verb">{isOn ? 'Take it off' : 'Put it on'}</span>
                 {isOn ? <span className="fx__on mono">{Math.round(amount * 100)}</span> : null}
               </button>
 
-              <div className="fx__head">
-                <span className="fx__name">{e.name}</span>
-                <span className="fx__group mono">{e.group}</span>
-              </div>
+              <div className="fx__body">
+                <div className="fx__head">
+                  <h2 className="fx__name">{e.name}</h2>
+                  <span className="fx__group">{e.group}</span>
+                </div>
+                <p className="fx__note">{e.note}</p>
 
-              {isOn ? (
-                <div className="fx__live">
-                  <input
-                    className="fx__slider"
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
+                {isOn ? (
+                  <Range
                     value={amount}
-                    aria-label={`${e.name} amount`}
-                    onChange={(ev) => setAmount(e, +ev.target.value)}
+                    onChange={(v) => setAmount(e, v)}
+                    label="Amount"
+                    format={(v) => `${Math.round(v * 100)}`}
+                    size="tight"
                   />
-                  <button className="fx__out" type="button" onClick={() => remove(e)} aria-label={`Take ${e.name} off`}>
-                    ×
-                  </button>
-                </div>
-              ) : null}
+                ) : null}
 
-              {isOpen ? (
-                <div className="fx__more">
-                  <p className="fx__note">{e.note}</p>
-                  {e.presets ? (
-                    <div className="fx__presets">
-                      {e.presets.map((pr) => (
-                        <button
-                          key={pr.label}
-                          type="button"
-                          className="fx__preset"
-                          onClick={() =>
-                            dispatch({
-                              type: 'edit',
-                              mutate: (r) => pr.apply(r),
-                              log: { kind: 'experiment', title: e.name, detail: pr.label },
-                            })
-                          }
-                        >
-                          {pr.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                {e.presets ? (
+                  <div className="fx__presets">
+                    {e.presets.map((pr) => (
+                      <button
+                        key={pr.label}
+                        type="button"
+                        className="fx__preset"
+                        onClick={() =>
+                          dispatch({
+                            type: 'edit',
+                            mutate: (r) => pr.apply(r),
+                            log: { kind: 'experiment', title: e.name, detail: pr.label },
+                          })
+                        }
+                      >
+                        {pr.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </article>
           );
         })}

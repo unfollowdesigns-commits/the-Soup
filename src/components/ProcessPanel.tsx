@@ -41,6 +41,7 @@ import type {
   StageId,
 } from '../lab/types';
 import { ExposureScale, Instrument, Module, Segmented, SeedField } from './Instrument';
+import { Switch } from './Dial';
 import { useVision } from '../vision/useVision';
 import { ACTION_LABEL, PINCH_TARGETS, type GestureAction } from '../vision/gestures';
 import { STAGE_LABEL as SL } from '../lab/recipe';
@@ -1235,13 +1236,12 @@ function GateModule({ mod }: { mod: ModProps }) {
       </div>
       <p className="instr__note">{fmt.note}</p>
 
-      <label className="clip__check">
-        <input type="checkbox" checked={gt.show} onChange={(e) => set('show', e.target.checked, 'Gate', e.target.checked ? 'On' : 'Off')} />
-        <span>
-          <span className="clip__check-name">Show the film</span>
-          <span className="mono mono--dim">Perforations, frame line and edge print, over the picture.</span>
-        </span>
-      </label>
+      <Switch
+        on={gt.show}
+        onChange={(v) => set('show', v, 'Gate', v ? 'On' : 'Off')}
+        label="Show the film"
+        note="Perforations, frame line and edge print, over the picture."
+      />
 
       <Instrument label="Weave" value={gt.weave} note="How much the frame moves in the gate. Regular 8 wanders; 35 on pilot pins does not." {...p('weave', 'Weave')} />
       <Instrument label="Frame line" value={gt.frameline} note="How far the gap between frames comes into the picture." {...p('frameline', 'Frame Line')} />
@@ -1264,13 +1264,12 @@ function GateModule({ mod }: { mod: ModProps }) {
       />
 
       <h4 className="sec-head sec-head--sub"><span className="lbl">Leader</span><span className="sec-head__line" /></h4>
-      <label className="clip__check">
-        <input type="checkbox" checked={gt.leader} onChange={(e) => set('leader', e.target.checked, 'Leader', e.target.checked ? 'On' : 'Off')} />
-        <span>
-          <span className="clip__check-name">Countdown</span>
-          <span className="mono mono--dim">A hand sweeping once a second round a numbered circle.</span>
-        </span>
-      </label>
+      <Switch
+        on={gt.leader}
+        onChange={(v) => set('leader', v, 'Leader', v ? 'On' : 'Off')}
+        label="Countdown"
+        note="A hand sweeping once a second round a numbered circle."
+      />
       <Instrument label="How far through" value={gt.leaderAt} {...p('leaderAt', 'Leader Position')} />
       <Instrument label="Counts from" value={gt.leaderFrom} min={3} max={12} step={1} format={(v) => v.toFixed(0)} {...p('leaderFrom', 'Leader Count')} />
     </Module>

@@ -5,6 +5,8 @@ import { proposeRecipeCode } from '../lab/recipe';
 import { useDispatch, useLab } from '../lab/store';
 import { ClipFrames, exportClip, pickCodec, type ExportProgress, type ExportSettings } from '../video/export';
 import { Instrument, Segmented } from './Instrument';
+import { Range } from './Range';
+import { Switch } from './Dial';
 
 /* ============================================================
    DEVELOP — MOVING
@@ -121,15 +123,15 @@ export function DevelopClip() {
       <div className="clip__view">
         <canvas ref={preview} className="clip__preview" />
         <div className="clip__scrub">
-          <input
-            type="range"
+          <Range
+            value={scrub}
+            onChange={setScrub}
             min={0}
             max={1}
             step={0.001}
-            value={scrub}
             disabled={running}
-            onChange={(e) => setScrub(+e.target.value)}
-            aria-label="Preview frame"
+            size="tight"
+            format={() => ''}
           />
           <span className="mono mono--dim">
             frame {Math.round(scrub * (frames - 1)) + 1} / {frames}
@@ -249,20 +251,13 @@ export function DevelopClip() {
           note="How many times this print has been through a projector."
         />
 
-        <label className="clip__check">
-          <input
-            type="checkbox"
-            checked={liveGrain}
-            disabled={running}
-            onChange={(e) => setLiveGrain(e.target.checked)}
-          />
-          <span>
-            <span className="clip__check-name">Grain moves</span>
-            <span className="mono mono--dim">
-              Every frame gets its own crystals, the way stock does.
-            </span>
-          </span>
-        </label>
+        <Switch
+          on={liveGrain}
+          onChange={setLiveGrain}
+          disabled={running}
+          label="Grain moves"
+          note="Every frame gets its own crystals, the way stock does."
+        />
 
         <hr className="hr" />
 

@@ -11,7 +11,7 @@ import { MaterialDetail } from './MaterialDetail';
 import { ProcessPanel } from './ProcessPanel';
 import { SpecimenViewer, type PlacementMode } from './SpecimenViewer';
 import { LookStrip } from './LookStrip';
-import { EffectLibrary } from './EffectLibrary';
+import { Dial } from './Dial';
 import { EFFECTS } from '../lab/catalogue';
 import { DepthAnalysis, ProcessingStatus } from './Status';
 
@@ -28,10 +28,9 @@ import { DepthAnalysis, ProcessingStatus } from './Status';
    Everything has a key. Nothing has a card.
    ============================================================ */
 
-type Bench = null | 'library' | 'stock' | 'cook' | 'read';
+type Bench = null | 'stock' | 'cook' | 'read';
 
 const BENCHES: { id: Exclude<Bench, null>; label: string; key: string; hint: string }[] = [
-  { id: 'library', label: 'Effects', key: 'f', hint: 'Every effect, searchable' },
   { id: 'stock', label: 'Stock', key: 's', hint: 'The material archive' },
   { id: 'cook', label: 'Cook', key: 'c', hint: 'Every stage, in the order it runs' },
   { id: 'read', label: 'Read', key: 'r', hint: 'What the engine is doing' },
@@ -44,7 +43,7 @@ export function LabShell() {
   } = useLab();
   const dispatch = useDispatch();
   const [stats, setStats] = useState<RenderStats | null>(null);
-  const [bench, setBench] = useState<Bench>('library');
+  const [bench, setBench] = useState<Bench>('cook');
   const [deckTab, setDeckTab] = useState<DeckTab>('looks');
   const [deckClosed, setDeckClosed] = useState(false);
   const [bare, setBare] = useState(false);
@@ -102,6 +101,9 @@ export function LabShell() {
           }
           return !v;
         });
+      } else if (k === 'f' && specimen) {
+        e.preventDefault();
+        dispatch({ type: 'screen', screen: 'effects' });
       } else if (k === 'l' && specimen) {
         dispatch({ type: 'screen', screen: 'light' });
       } else if (k === 'p' && specimen) {
@@ -161,32 +163,21 @@ export function LabShell() {
 
         <div className="plain__foot">
           <div className="plain__dial">
-            <div className="plain__dial-head">
-              <span className="plain__look">{look?.name ?? 'No look'}</span>
-              <span className="plain__amount mono">{Math.round(strength * 100)}</span>
-            </div>
-            <input
-              className="plain__slider"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
+            <Dial
               value={strength}
+              onChange={(v) => dispatch({ type: 'strength', value: v })}
+              label={look?.name ?? 'No look'}
+              caption="drag up · bare stock to all of it"
               disabled={!look}
-              aria-label="How much of the look"
-              onChange={(e) => dispatch({ type: 'strength', value: +e.target.value })}
+              size={126}
             />
-            <div className="plain__ends">
-              <span>bare stock</span>
-              <span>all of it</span>
-            </div>
             <button
               className="plain__door"
               type="button"
-              onClick={() => dispatch({ type: 'bench', open: true })}
+              onClick={() => dispatch({ type: 'screen', screen: 'effects' })}
             >
               All {EFFECTS.length} effects
-              <span className="plain__door-key mono">B</span>
+              <span className="plain__door-key mono">F</span>
             </button>
           </div>
 
@@ -282,6 +273,16 @@ export function LabShell() {
           type="button"
           className="spine__key spine__key--go"
           disabled={!specimen}
+          title={`All ${EFFECTS.length} effects · F`}
+          onClick={() => dispatch({ type: 'screen', screen: 'effects' })}
+        >
+          <span className="spine__label">Effects</span>
+          <span className="spine__hint mono">F</span>
+        </button>
+        <button
+          type="button"
+          className="spine__key spine__key--go"
+          disabled={!specimen}
           title="Depth-aware light injection, live · L"
           onClick={() => dispatch({ type: 'screen', screen: 'light' })}
         >
@@ -348,8 +349,6 @@ export function LabShell() {
           </header>
 
           <div className="benchpanel__body">
-            {bench === 'library' ? <EffectLibrary /> : null}
-
             {bench === 'stock' ? (
               <>
                 <MaterialArchive

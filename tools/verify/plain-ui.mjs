@@ -28,10 +28,21 @@ const count = await p.evaluate(() => {
 console.log('plain lab controls on screen:', count.controls);
 
 // the dial
-const dial = p.locator('.plain__slider');
-await dial.fill('0.25'); await p.waitForTimeout(900);
+// the knob is dragged, not filled
+const knob = p.locator('.dial__knob');
+const box = await knob.boundingBox();
+await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+await p.mouse.down();
+await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 135, { steps: 8 });
+await p.mouse.up();
+await p.waitForTimeout(900);
 await p.screenshot({ path:`${OUT}/p2-quarter.png` });
-await dial.fill('1'); await p.waitForTimeout(900);
+console.log('after drag, dial reads', await p.locator('.dial__read').textContent());
+await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+await p.mouse.down();
+await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 300, { steps: 8 });
+await p.mouse.up();
+await p.waitForTimeout(700);
 
 // a different look
 await p.getByRole('button', { name:/^Riso$/i }).first().click().catch(()=>{});
@@ -39,7 +50,7 @@ await p.waitForTimeout(1200);
 await p.screenshot({ path:`${OUT}/p3-riso.png` });
 
 // the door
-await p.keyboard.press('b');
+await p.keyboard.press('c');
 await p.waitForTimeout(900);
 await p.screenshot({ path:`${OUT}/p4-bench.png` });
 const full = await p.evaluate(() => [...document.querySelectorAll('button, input, select')]

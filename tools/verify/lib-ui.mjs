@@ -13,8 +13,8 @@ await p.getByRole('button',{name:/window/i}).first().click();
 await p.waitForTimeout(3000);
 await p.screenshot({path:`${OUT}/l0-plain.png`});
 
-// through the door into the library
-await p.keyboard.press('b');
+// into the effects screen
+await p.keyboard.press('f');
 await p.waitForTimeout(9000);            // let the thumbnails render
 await p.screenshot({path:`${OUT}/l1-library.png`});
 
