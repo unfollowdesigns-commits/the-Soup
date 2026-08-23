@@ -1,4 +1,4 @@
-import type { PhotoRecipe } from './types';
+import type { PhotoRecipe, StageId } from './types';
 
 /* ============================================================
    THE CATALOGUE
@@ -36,6 +36,9 @@ export interface Effect {
   id: string;
   name: string;
   group: EffectGroup;
+  /** the stage that carries this effect's full set of controls, so the
+   *  workspace can open the whole thing beside the picture */
+  stage: StageId;
   /** what it does, in one sentence, in the lab's own voice */
   note: string;
   /** the other words someone might type looking for this */
@@ -51,6 +54,24 @@ export interface Effect {
 }
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/* Which stage owns which part of the recipe, worked out once here
+   rather than repeated at every call site. */
+const SECTION_STAGE: Record<string, StageId> = {
+  exposure: 'exposure', development: 'development', grain: 'grain',
+  halation: 'halation', diffusion: 'diffusion', optics: 'optics',
+  time: 'time', warp: 'warp', signal: 'signal', screen: 'screen',
+  paper: 'paper', raster: 'raster', blur: 'blur', trace: 'trace',
+  sequence: 'sequence', gate: 'gate', depth: 'depth',
+};
+
+/** the experimental section is split across two stages */
+const DAMAGE_KEYS = new Set(['scratches', 'dust', 'lightLeak', 'expired', 'solarization', 'redscale']);
+
+const stageFor = (section: string, key: string): StageId => {
+  if (section === 'experimental') return DAMAGE_KEYS.has(key) ? 'damage' : 'soup';
+  return SECTION_STAGE[section] ?? 'exposure';
+};
 
 /** the common shape: one section, one key, 0..1 */
 function simple(
@@ -70,6 +91,7 @@ function simple(
     ({ ...r, [section]: { ...(r[section] as object), [key]: v } }) as PhotoRecipe;
   return {
     id, name, group, note, find,
+    stage: stageFor(section as string, key),
     read: (r) => clamp(get(r)),
     write: (r, v) => put(r, clamp(v)),
     on: (r) => (extra ? extra(put(r, wake)) : put(r, wake)),
@@ -88,6 +110,7 @@ function bipolar(
     ({ ...r, [section]: { ...(r[section] as object), [key]: v } }) as PhotoRecipe;
   return {
     id, name, group, note, find,
+    stage: stageFor(section as string, key),
     read: (r) => clamp(Math.abs(get(r)) / span),
     write: (r, v) => put(r, Math.sign(get(r) || 1) * clamp(v) * span),
     on: (r) => put(r, wake * span),
@@ -114,6 +137,7 @@ function moded<M extends string>(
     ({ ...r, [section]: { ...sec(r), ...patch } }) as PhotoRecipe;
   return {
     id, name, group, note, find,
+    stage: SECTION_STAGE[section] ?? 'warp',
     read: (r) => (isMine(r) ? clamp(amt(r)) : 0),
     write: (r, v) => put(r, { [modeKey]: mode, [amountKey]: clamp(v) }),
     on: (r) => {
@@ -256,7 +280,7 @@ export const EFFECTS: Effect[] = [
 
   /* ---- the gate ---- */
   {
-    id: 'filmgate', name: 'Film gate', group: 'The Gate',
+    id: 'filmgate', name: 'Film gate', group: 'The Gate', stage: 'gate',
     note: 'The film round the picture: perforations, frame line and edge print, in five formats.',
     find: '8mm super 8 16mm 35mm perforations sprocket strip window',
     read: (r) => (r.gate.show ? 1 : 0),
@@ -277,7 +301,7 @@ export const EFFECTS: Effect[] = [
     { label: 'Gone', apply: (r) => ({ ...r, gate: { ...r.gate, burn: 1 } }) },
   ]),
   {
-    id: 'leader', name: 'Countdown leader', group: 'The Gate',
+    id: 'leader', name: 'Countdown leader', group: 'The Gate', stage: 'gate',
     note: 'The academy leader before the picture starts: a hand sweeping once a second round a numbered circle.',
     find: 'academy smpte countdown numbers picture start head',
     read: (r) => (r.gate.leader ? 1 : 0),
@@ -289,7 +313,7 @@ export const EFFECTS: Effect[] = [
 
   /* ---- vector ---- */
   {
-    id: 'trace', name: 'Tracking', group: 'Vector',
+    id: 'trace', name: 'Tracking', group: 'Vector', stage: 'trace',
     note: 'What the lab has found in the frame, drawn over it: boxes, the graph between them, trails and bearings.',
     find: 'boxes squares constellation lines connect track motion detect',
     read: (r) => (r.trace.enabled ? r.trace.density : 0),
@@ -308,7 +332,7 @@ export const EFFECTS: Effect[] = [
     ],
   },
   {
-    id: 'sequence', name: 'Contact sheet', group: 'Vector',
+    id: 'sequence', name: 'Contact sheet', group: 'Vector', stage: 'sequence',
     note: 'The frame repeated as a strip or a grid, with frame numbers and a date down the edge.',
     find: 'strip grid proof sheet repeat frames contact',
     read: (r) => (r.sequence.enabled ? 1 : 0),
@@ -324,7 +348,7 @@ export const EFFECTS: Effect[] = [
 
   /* ---- depth ---- */
   {
-    id: 'depth', name: 'Depth', group: 'Optics',
+    id: 'depth', name: 'Depth', group: 'Optics', stage: 'depth',
     note: 'Grain, halation, diffusion and haze weighted by how far away the lab thinks each part of the frame is.',
     find: 'z distance atmosphere haze 3d parallax',
     read: (r) => (r.depth.enabled ? r.depth.influence : 0),
