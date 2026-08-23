@@ -1,6 +1,5 @@
 import { Workspace } from './components/Workspace';
 import { DropAnywhere } from './components/DropAnywhere';
-import { EffectsScreen } from './screens/EffectsScreen';
 import { MobileLab } from './mobile/MobileLab';
 import { useLab } from './lab/store';
 import { lazy, Suspense } from 'react';
@@ -34,7 +33,6 @@ function Screen() {
 
   if (screen === 'enter') return <EnterLab />;
   if (screen === 'import') return <ImportSpecimen />;
-  if (screen === 'effects') return <EffectsScreen />;
   if (screen === 'press') return <Bench><PressBench /></Bench>;
   if (screen === 'light') return <Bench><LightBench /></Bench>;
   return compact ? <MobileLab /> : <Workspace />;
