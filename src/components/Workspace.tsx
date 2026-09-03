@@ -69,6 +69,34 @@ export function Workspace() {
   const chain = useMemo(() => activeEffects(recipe), [recipe]);
   const liveIds = useMemo(() => new Set(chain.map((e) => e.id)), [chain]);
 
+  /* A look is one decision that happens to switch on fifteen things. The
+     chain showed all fifteen, which is why opening the lab felt like
+     walking into a room somebody had already made a mess of. So a look's
+     own effects collapse into one chip you can open.
+
+     But an effect belongs to the look only until you touch it: half of
+     what a look switches on — grain, vignette — is also something you
+     would reach for on its own, and hiding your own choice inside
+     somebody else's chip is worse than showing fifteen chips. */
+  const lookIds = useMemo(
+    () => (look ? new Set(activeEffects(look.full).map((e) => e.id)) : new Set<string>()),
+    [look],
+  );
+  const [lookOpen, setLookOpen] = useState(false);
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const mark = useCallback((id: string) => {
+    setTouched((t) => (t.has(id) ? t : new Set(t).add(id)));
+  }, []);
+  useEffect(() => {
+    // a new look is a fresh start for what counts as yours
+    setTouched(new Set());
+    setLookOpen(false);
+  }, [look]);
+
+  const fromLook = chain.filter((e) => lookIds.has(e.id) && !touched.has(e.id));
+  const mine = chain.filter((e) => !lookIds.has(e.id) || touched.has(e.id));
+  const loose = lookOpen || fromLook.length === 0 ? chain : mine;
+
   const shown = useMemo(() => {
     const found = searchEffects(q);
     if (group === 'all') return found;
@@ -172,6 +200,8 @@ export function Workspace() {
       log: { kind: 'experiment', title: e.name, detail: solo ? 'on its own' : 'added' },
     });
     setPicked(e.id);
+    mark(e.id);
+    if (solo) setTouched(new Set([e.id]));
   };
 
   const reset = () => {
@@ -181,12 +211,17 @@ export function Workspace() {
       log: { kind: 'experiment', title: 'Cleared', detail: 'back to the bare stock' },
     });
     setPicked(null);
+    setTouched(new Set());
   };
   const drop = (e: Effect) => {
     dispatch({ type: 'edit', mutate: (r) => e.off(r), log: { kind: 'experiment', title: e.name, detail: 'off' } });
     if (picked === e.id) setPicked(null);
+    mark(e.id);
   };
-  const amount = (e: Effect, v: number) => dispatch({ type: 'edit', mutate: (r) => e.write(r, v) });
+  const amount = (e: Effect, v: number) => {
+    mark(e.id);
+    dispatch({ type: 'edit', mutate: (r) => e.write(r, v) });
+  };
 
   return (
     <div className="ws" data-browse={browse} data-panel={!!current} data-looks={looksOpen}>
@@ -377,12 +412,28 @@ export function Workspace() {
           </button>
         </div>
         <div className="ws__chainrail">
+          {look && fromLook.length > 0 ? (
+            <button
+              type="button"
+              className="lookchip"
+              aria-expanded={lookOpen}
+              onClick={() => setLookOpen((v) => !v)}
+              title={`${fromLook.length} effects came from this look`}
+            >
+              <span className="lookchip__name">{look.name}</span>
+              <span className="lookchip__n mono">{fromLook.length}</span>
+              <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+                <path d="M2.5 1 L6 4 L2.5 7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            </button>
+          ) : null}
+
           {chain.length === 0 ? (
             <span className="ws__chainnone">
               Nothing on the picture. Add something from the left, or press <kbd className="mono">K</kbd> for a whole look.
             </span>
           ) : null}
-          {chain.map((e) => (
+          {loose.map((e) => (
             <div key={e.id} className="link" data-picked={picked === e.id}>
               <button type="button" className="link__name" onClick={() => setPicked(picked === e.id ? null : e.id)}>
                 {e.name}

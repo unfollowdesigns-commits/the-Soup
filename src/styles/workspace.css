@@ -447,6 +447,25 @@
 .ws__chainnone { font-size: var(--t-tiny); color: var(--paper-low); white-space: nowrap; }
 .ws__chainnone kbd { border: 1px solid var(--line-soft); border-radius: 3px; padding: 1px 4px; font-size: 8px; }
 
+/* the whole look, as one chip, because it was one decision */
+.lookchip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--orange);
+  border-radius: var(--pill);
+  background: rgba(255, 61, 16, 0.1);
+  color: var(--orange);
+}
+.lookchip:hover { background: var(--orange); color: var(--ink); }
+.lookchip__name { font-family: var(--f-display); font-size: var(--t-tiny); font-weight: 600; white-space: nowrap; }
+.lookchip__n { font-size: var(--t-nano); opacity: 0.75; }
+.lookchip svg { transition: transform var(--d2) var(--e); }
+.lookchip[aria-expanded='true'] svg { transform: rotate(90deg); }
+
 .link {
   flex: none;
   display: flex;
