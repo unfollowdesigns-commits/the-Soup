@@ -6,7 +6,9 @@ import {
   EFFECTS,
   GROUPS,
   activeEffects,
+  clearEffects,
   searchEffects,
+  soloEffect,
   type Effect,
   type EffectGroup,
 } from '../lab/catalogue';
@@ -51,6 +53,10 @@ export function Workspace() {
   const [stats, setStats] = useState<RenderStats | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
+  /* Trying one thing at a time is what a catalogue is for. Piling
+     fifteen of them up is a second, deliberate act — so it is the mode
+     you switch into, not the one you fall into. */
+  const [solo, setSolo] = useState(true);
 
   const onStats = useCallback((s: RenderStats | null) => setStats(s), []);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -103,12 +109,14 @@ export function Workspace() {
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'b') { e.preventDefault(); setBrowse((v) => !v); }
+      if (k === 'r') { e.preventDefault(); reset(); }
       if (k === 'k') { e.preventDefault(); setLooksOpen((v) => !v); }
       if (k === 'e' && specimen) { e.preventDefault(); dispatch({ type: 'export', open: true }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [picked, looksOpen, specimen, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, looksOpen, specimen, dispatch, solo]);
 
   /* ---- thumbnails: one context, the cards you are looking at first ---- */
   useEffect(() => {
@@ -158,8 +166,21 @@ export function Workspace() {
   }, [specimen, topUp]);
 
   const add = (e: Effect) => {
-    dispatch({ type: 'edit', mutate: (r) => e.on(r), log: { kind: 'experiment', title: e.name, detail: 'on' } });
+    dispatch({
+      type: 'edit',
+      mutate: (r) => (solo ? soloEffect(r, e) : e.on(r)),
+      log: { kind: 'experiment', title: e.name, detail: solo ? 'on its own' : 'added' },
+    });
     setPicked(e.id);
+  };
+
+  const reset = () => {
+    dispatch({
+      type: 'edit',
+      mutate: (r) => clearEffects(r),
+      log: { kind: 'experiment', title: 'Cleared', detail: 'back to the bare stock' },
+    });
+    setPicked(null);
   };
   const drop = (e: Effect) => {
     dispatch({ type: 'edit', mutate: (r) => e.off(r), log: { kind: 'experiment', title: e.name, detail: 'off' } });
@@ -217,6 +238,15 @@ export function Workspace() {
           />
           {q ? <button type="button" className="ws__clear" onClick={() => setQ('')} aria-label="Clear">×</button> : null}
           <kbd className="mono">/</kbd>
+        </div>
+
+        <div className="ws__mode" role="group" aria-label="What a click does">
+          <button type="button" aria-pressed={solo} onClick={() => setSolo(true)}>
+            One at a time
+          </button>
+          <button type="button" aria-pressed={!solo} onClick={() => setSolo(false)}>
+            Stack up
+          </button>
         </div>
 
         <div className="ws__groups">
@@ -334,9 +364,18 @@ export function Workspace() {
       ) : null}
 
       <footer className="ws__chain">
-        <span className="ws__chainhead">
-          Chain <em className="mono">{chain.length}</em>
-        </span>
+        <div className="ws__chainhead">
+          <span>Chain <em className="mono">{chain.length}</em></span>
+          <button
+            type="button"
+            className="ws__reset"
+            onClick={reset}
+            disabled={chain.length === 0}
+            title="Everything off, back to the bare stock · R"
+          >
+            Reset
+          </button>
+        </div>
         <div className="ws__chainrail">
           {chain.length === 0 ? (
             <span className="ws__chainnone">

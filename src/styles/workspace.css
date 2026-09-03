@@ -146,6 +146,28 @@
 }
 .ws__clear:hover { color: var(--orange); }
 
+/* what a click on a card does — said plainly, above the cards */
+.ws__mode {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  margin: 0 var(--s3) var(--s2);
+  padding: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--pill);
+}
+.ws__mode button {
+  flex: 1;
+  height: 26px;
+  border-radius: var(--pill);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  color: var(--paper-low);
+}
+.ws__mode button:hover { color: var(--paper); }
+.ws__mode button[aria-pressed='true'] { background: var(--paper); color: var(--ink); }
+
 .ws__groups {
   flex: none;
   display: flex;
@@ -386,15 +408,31 @@
 .ws__chainhead {
   flex: none;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
   font-family: var(--f-display);
   font-size: var(--t-micro);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--paper-low);
 }
+.ws__chainhead > span { display: flex; align-items: baseline; gap: 6px; }
 .ws__chainhead em { font-style: normal; font-size: var(--t-tiny); color: var(--orange); }
+
+.ws__reset {
+  padding: 3px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--pill);
+  font-family: var(--f-display);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--paper-dim);
+}
+.ws__reset:hover:not(:disabled) { background: var(--orange); border-color: var(--orange); color: var(--ink); }
+.ws__reset:disabled { opacity: 0.32; }
 
 .ws__chainrail {
   flex: 1;

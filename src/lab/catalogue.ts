@@ -425,6 +425,28 @@ export function activeEffects(r: PhotoRecipe): Effect[] {
   return EFFECTS.filter((e) => e.read(r) > 0.001);
 }
 
+/**
+ * Everything off. The film stays in the camera — there is always a
+ * stock loaded — but nothing is being done to it.
+ */
+export function clearEffects(r: PhotoRecipe): PhotoRecipe {
+  let out = r;
+  for (const e of EFFECTS) {
+    if (e.group === 'Film stock') continue;
+    out = e.off(out);
+  }
+  return out;
+}
+
+/**
+ * One effect, and only that one. Auditioning is the thing people
+ * actually do with a catalogue: try it, then try the next one. Adding
+ * to a pile of fifteen is a second, deliberate act.
+ */
+export function soloEffect(r: PhotoRecipe, e: Effect): PhotoRecipe {
+  return e.group === 'Film stock' ? e.on(r) : e.on(clearEffects(r));
+}
+
 /** Free-text search across name, group, note and the extra words. */
 export function searchEffects(q: string): Effect[] {
   const s = q.trim().toLowerCase();
