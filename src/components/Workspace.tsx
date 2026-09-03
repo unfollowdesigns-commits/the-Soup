@@ -79,7 +79,17 @@ export function Workspace() {
      would reach for on its own, and hiding your own choice inside
      somebody else's chip is worse than showing fifteen chips. */
   const lookIds = useMemo(
-    () => (look ? new Set(activeEffects(look.full).map((e) => e.id)) : new Set<string>()),
+    () =>
+      look
+        ? new Set(
+            activeEffects(look.full)
+              // the stock is always loaded, so it is never something the
+              // look is "doing" — counting it left the chip reading 1
+              // after a reset had taken everything off
+              .filter((e) => e.group !== 'Film stock')
+              .map((e) => e.id),
+          )
+        : new Set<string>(),
     [look],
   );
   const [lookOpen, setLookOpen] = useState(false);
